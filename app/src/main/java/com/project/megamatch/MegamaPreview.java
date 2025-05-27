@@ -9,8 +9,11 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.viewpager2.widget.ViewPager2;
 
+import android.app.ProgressDialog;
 import android.content.Intent;
+import android.graphics.Color;
 import android.os.Bundle;
+import android.os.CountDownTimer;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -21,6 +24,8 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import androidx.appcompat.app.AlertDialog;
 
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.load.engine.DiskCacheStrategy;
@@ -52,6 +57,8 @@ public class MegamaPreview extends AppCompatActivity {
     private String megamaDocId; // The document ID for the megama (can be the megama name or rakaz username)
     private List<String> imageUrls = new ArrayList<>();
     private int currentImagePosition = 0;
+    private boolean isManager = false; // Flag to identify if the user is a manager
+    private ImageButton deleteButton; // Delete button for managers
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -77,13 +84,14 @@ public class MegamaPreview extends AppCompatActivity {
             username = extras.getString("username", "");
             megamaName = extras.getString("megamaName", "");
             megamaDocId = extras.getString("megamaDocId", "");
+            isManager = extras.getBoolean("isManager", false);
             
             // For backward compatibility
             if (megamaDocId == null || megamaDocId.isEmpty()) {
                 megamaDocId = megamaName; // Default to megama name if not specified
             }
             
-            Log.d(TAG, "Got from intent - megamaName: " + megamaName + ", megamaDocId: " + megamaDocId);
+            Log.d(TAG, "Got from intent - megamaName: " + megamaName + ", megamaDocId: " + megamaDocId + ", isManager: " + isManager);
 
             // If we have the document ID directly, load the megama details
             if (megamaDocId != null && !megamaDocId.isEmpty()) {
@@ -116,9 +124,55 @@ public class MegamaPreview extends AppCompatActivity {
         imageViewPager = findViewById(R.id.imageViewPager);
         customRequirementsContainer = findViewById(R.id.customRequirementsContainer);
 
+        // Immediately handle manager UI if needed
+        if (isManager) {
+            // Hide greeting right away to prevent flicker
+            if (greetingText != null) {
+                greetingText.setVisibility(View.GONE);
+            }
+        }
+
         // Setup ViewPager
         ImageSliderAdapter sliderAdapter = new ImageSliderAdapter();
         imageViewPager.setAdapter(sliderAdapter);
+        
+        // If user is a manager, replace greeting with delete button
+        if (isManager) {
+            Log.d(TAG, "Manager mode detected, setting up delete button");
+            setupDeleteButton();
+            
+            // Alternative approach - directly modify the layout
+            if (greetingText != null) {
+                // Replace greeting text with a button
+                ViewGroup rootLayout = findViewById(R.id.megamaPreview);
+                if (rootLayout != null) {
+                    Log.d(TAG, "Adding delete button to root layout as a backup approach");
+                    
+                    // Create another delete button as a fallback
+                    ImageButton backupDeleteButton = new ImageButton(this);
+                    backupDeleteButton.setImageResource(android.R.drawable.ic_menu_delete);
+                    backupDeleteButton.setBackgroundColor(Color.RED);
+                    backupDeleteButton.setColorFilter(Color.WHITE);
+                    
+                    // Make it fixed size
+                    LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                            dpToPx(60),
+                            dpToPx(60)
+                    );
+                    
+                    // Position it at the top right
+                    params.gravity = android.view.Gravity.TOP | android.view.Gravity.END;
+                    params.setMargins(0, dpToPx(16), dpToPx(16), 0);
+                    backupDeleteButton.setLayoutParams(params);
+                    
+                    // Add click listener
+                    backupDeleteButton.setOnClickListener(v -> showDeleteConfirmation());
+                    
+                    // Add to layout
+                    rootLayout.addView(backupDeleteButton);
+                }
+            }
+        }
         
         // Setup ViewPager page change listener
         imageViewPager.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
@@ -156,12 +210,14 @@ public class MegamaPreview extends AppCompatActivity {
               .get()
               .addOnSuccessListener(documentSnapshot -> {
                   if (documentSnapshot.exists()) {
-                      // Get rakaz name and greeting
-                      String firstName = documentSnapshot.getString("firstName");
-                      if (firstName != null && !firstName.isEmpty()) {
-                          greetingText.setText("שלום " + firstName);
-                      } else {
-                          greetingText.setText("שלום " + username);
+                      // Get rakaz name and greeting (only for non-managers)
+                      if (!isManager) {
+                          String firstName = documentSnapshot.getString("firstName");
+                          if (firstName != null && !firstName.isEmpty()) {
+                              greetingText.setText("שלום " + firstName);
+                          } else {
+                              greetingText.setText("שלום " + username);
+                          }
                       }
 
                       // Get megama name
@@ -186,8 +242,26 @@ public class MegamaPreview extends AppCompatActivity {
     }
 
     private void loadMegamaDetailsDirect() {
-        // Set rakaz greeting if username is available
-        if (username != null && !username.isEmpty()) {
+        // If this is a manager view, don't set up greeting at all
+        if (isManager) {
+            // Ensure greeting is not visible for managers
+            if (greetingText != null) {
+                Log.d(TAG, "Manager view - transforming greeting to a delete button");
+                
+                // Third approach - transform the TextView into a delete button visual
+                greetingText.setVisibility(View.VISIBLE);
+                greetingText.setText("");  // Clear text
+                greetingText.setBackgroundColor(Color.RED);
+                greetingText.setCompoundDrawablesWithIntrinsicBounds(0, 0, android.R.drawable.ic_menu_delete, 0);
+                greetingText.setPadding(dpToPx(8), dpToPx(8), dpToPx(8), dpToPx(8));
+                greetingText.setOnClickListener(v -> {
+                    Log.d(TAG, "Delete button (text view) clicked");
+                    showDeleteConfirmation();
+                });
+            }
+        }
+        // Set rakaz greeting if username is available and not in manager mode
+        else if (username != null && !username.isEmpty()) {
             fireDB.collection("schools").document(schoolId)
                   .collection("rakazim").document(username)
                   .get()
@@ -356,6 +430,134 @@ public class MegamaPreview extends AppCompatActivity {
         } else {
             imageCounter.setVisibility(View.GONE);
         }
+    }
+
+    // Setup delete button for managers
+    private void setupDeleteButton() {
+        // Instead of removing the greeting text, let's convert it into a container for our button
+        // This ensures we maintain the same layout positioning
+        
+        // First make sure the greeting text is hidden
+        greetingText.setVisibility(View.GONE);
+        
+        // Get the parent layout that contains the greeting text
+        ViewGroup parent = (ViewGroup) greetingText.getParent();
+        if (parent != null) {
+            Log.d(TAG, "Parent view found, adding delete button");
+            
+            // Create delete button programmatically with very clear styling
+            deleteButton = new ImageButton(this);
+            deleteButton.setId(View.generateViewId()); // Give it a unique ID
+            deleteButton.setImageResource(android.R.drawable.ic_menu_delete);
+            deleteButton.setBackgroundColor(Color.RED);
+            deleteButton.setColorFilter(Color.WHITE); // White icon
+            
+            // Make sure the button is visible with clear dimensions
+            deleteButton.setVisibility(View.VISIBLE);
+            
+            // Set button size and style (make it larger and more visible)
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                    dpToPx(60), // 60dp width - bigger to be more visible
+                    dpToPx(60)  // 60dp height - bigger to be more visible
+            );
+            params.setMargins(dpToPx(8), dpToPx(8), dpToPx(8), dpToPx(8)); // Add margins all around
+            deleteButton.setLayoutParams(params);
+            
+            // Add the button directly to the parent layout
+            parent.addView(deleteButton);
+            
+            // Set click listener
+            deleteButton.setOnClickListener(v -> {
+                Log.d(TAG, "Delete button clicked");
+                showDeleteConfirmation();
+            });
+            
+            Log.d(TAG, "Delete button added successfully");
+        } else {
+            Log.e(TAG, "Could not find parent view for greeting text");
+        }
+    }
+    
+    // Convert dp to pixels
+    private int dpToPx(int dp) {
+        float density = getResources().getDisplayMetrics().density;
+        return Math.round(dp * density);
+    }
+    
+    // Show delete confirmation dialog with cooldown
+    private void showDeleteConfirmation() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("מחיקת מגמה");
+        builder.setMessage("פעולה זו תמחק לצמיתות את המגמה. להמשיך?");
+        
+        // Create cancel button
+        builder.setNegativeButton("בטל", (dialog, which) -> dialog.dismiss());
+        
+        // Create delete button with cooldown
+        final int[] countdown = {3}; // 3 second countdown
+        final TextView[] deleteButtonText = new TextView[1]; // For reference to button text
+        
+        builder.setPositiveButton("מחק", null); // We'll override this below
+        
+        AlertDialog dialog = builder.create();
+        dialog.setOnShowListener(dialogInterface -> {
+            Button deleteButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+            deleteButton.setTextColor(Color.RED);
+            deleteButton.setEnabled(false);
+            deleteButtonText[0] = (TextView) deleteButton;
+            
+            // Set initial transparency
+            deleteButton.setAlpha(0.3f);
+            
+            // Start countdown
+            new CountDownTimer(3000, 1000) {
+                @Override
+                public void onTick(long millisUntilFinished) {
+                    countdown[0] = (int) (millisUntilFinished / 1000) + 1;
+                    deleteButton.setText("מחק (" + countdown[0] + ")");
+                }
+                
+                @Override
+                public void onFinish() {
+                    deleteButton.setEnabled(true);
+                    deleteButton.setAlpha(1.0f);
+                    deleteButton.setText("מחק");
+                    
+                    // Set click listener for actual delete
+                    deleteButton.setOnClickListener(v -> {
+                        dialog.dismiss();
+                        deleteMegama();
+                    });
+                }
+            }.start();
+        });
+        
+        dialog.show();
+    }
+    
+    // Delete the megama from Firestore
+    private void deleteMegama() {
+        // Show progress
+        ProgressDialog progressDialog = new ProgressDialog(this);
+        progressDialog.setMessage("מוחק מגמה...");
+        progressDialog.setCancelable(false);
+        progressDialog.show();
+        
+        // Delete megama document
+        fireDB.collection("schools").document(schoolId)
+            .collection("megamot").document(megamaDocId)
+            .delete()
+            .addOnSuccessListener(aVoid -> {
+                progressDialog.dismiss();
+                Toast.makeText(MegamaPreview.this, "המגמה נמחקה בהצלחה", Toast.LENGTH_SHORT).show();
+                // Return to previous screen
+                finish();
+            })
+            .addOnFailureListener(e -> {
+                progressDialog.dismiss();
+                Log.e(TAG, "Error deleting megama", e);
+                Toast.makeText(MegamaPreview.this, "שגיאה במחיקת המגמה: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            });
     }
 
     // ViewPager adapter for image slider

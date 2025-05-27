@@ -1,18 +1,24 @@
 package com.project.megamatch;
 
+import android.app.Dialog;
+import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.Log;
 import android.util.Patterns;
 import android.view.View;
+import android.view.ViewGroup;
+import android.view.Window;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 import com.google.firebase.firestore.DocumentSnapshot;
@@ -316,7 +322,9 @@ public class addRakaz extends AppCompatActivity {
             .addOnSuccessListener(aVoid -> {
                 progressBar.setVisibility(View.GONE);
                 addButton.setEnabled(true);
-                Toast.makeText(addRakaz.this, "רכז נוסף בהצלחה", Toast.LENGTH_SHORT).show();
+                
+                // Show success dialog instead of Toast
+                showSuccessDialog("רכז נוסף בהצלחה!");
                 
                 // Clear all inputs
                 firstNameInput.setText("");
@@ -331,6 +339,60 @@ public class addRakaz extends AppCompatActivity {
                 Log.e(TAG, "Error adding email", e);
                 Toast.makeText(addRakaz.this, "שגיאה בהוספת דוא\"ל: " + e.getMessage(), Toast.LENGTH_SHORT).show();
             });
+    }
+    
+    /**
+     * Show a custom styled success dialog
+     * @param message The success message to display
+     */
+    private void showSuccessDialog(String message) {
+        // Create a dialog
+        Dialog customDialog = new Dialog(this);
+        customDialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        customDialog.setCancelable(false);
+        
+        // Set the custom layout
+        customDialog.setContentView(R.layout.success_dialog);
+        
+        // Get window to set layout parameters
+        Window window = customDialog.getWindow();
+        if (window != null) {
+            window.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            window.setBackgroundDrawable(new ColorDrawable(android.graphics.Color.TRANSPARENT));
+            
+            // Add custom animation
+            window.setWindowAnimations(R.style.DialogAnimation);
+        }
+        
+        // Set the success message
+        TextView messageView = customDialog.findViewById(R.id.dialogMessage);
+        if (messageView != null) {
+            messageView.setText(message);
+        }
+        
+        // Set the title
+        TextView titleView = customDialog.findViewById(R.id.dialogTitle);
+        if (titleView != null) {
+            titleView.setText("הוספת רכז");
+        }
+        
+        // Set the success icon
+        ImageView iconView = customDialog.findViewById(R.id.successIcon);
+        if (iconView != null) {
+            // Use checkmark icon
+            iconView.setImageResource(R.drawable.ic_checkmark);
+        }
+        
+        // Set up the close button
+        MaterialButton closeButton = customDialog.findViewById(R.id.closeButton);
+        if (closeButton != null) {
+            closeButton.setOnClickListener(v -> {
+                customDialog.dismiss();
+            });
+        }
+        
+        // Show the dialog
+        customDialog.show();
     }
     
     public void goBack(View view) {

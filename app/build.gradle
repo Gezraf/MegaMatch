@@ -56,14 +56,23 @@ android {
     
     // Optimize dexing
     dexOptions {
+        javaMaxHeapSize "4g"
         preDexLibraries true
-        javaMaxHeapSize "6g"
     }
     
     // Lint options to speed up builds
     lintOptions {
         checkReleaseBuilds false
         abortOnError false
+    }
+
+    // Limit resources that get compiled
+    packagingOptions {
+        exclude 'META-INF/LICENSE.txt'
+        exclude 'META-INF/license.txt'
+        exclude 'META-INF/NOTICE.txt'
+        exclude 'META-INF/notice.txt'
+        exclude 'META-INF/ASL2.0'
     }
 }
 

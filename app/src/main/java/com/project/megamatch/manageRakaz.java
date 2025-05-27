@@ -3,10 +3,12 @@ package com.project.megamatch;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.CountDownTimer;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -20,7 +22,10 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
 import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.EventListener;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.FirebaseFirestoreException;
+import com.google.firebase.firestore.ListenerRegistration;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 import com.google.firebase.firestore.QuerySnapshot;
 
@@ -41,6 +46,10 @@ public class manageRakaz extends AppCompatActivity {
     private String schoolId;
     private RakazAdapter rakazAdapter;
     private List<RakazItem> rakazList;
+    
+    // Firestore listeners for real-time updates
+    private ListenerRegistration allowedEmailsListener;
+    private ListenerRegistration rakazimListener;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -74,7 +83,13 @@ public class manageRakaz extends AppCompatActivity {
         // Load school name
         loadSchoolName();
         
-        // Load rakazim
+        // Clear any previous state
+        removeListeners();
+        rakazList.clear();
+        rakazAdapter.notifyDataSetChanged();
+        
+        // Load rakazim with real-time listener
+        Log.d(TAG, "Starting initial data load with real-time listeners");
         loadRakazim();
     }
     
@@ -116,38 +131,74 @@ public class manageRakaz extends AppCompatActivity {
     private void loadRakazim() {
         showLoading(true);
         
-        // First check allowedRakazEmails collection
-        db.collection("schools").document(schoolId)
+        // Clear existing list
+        rakazList.clear();
+        rakazAdapter.notifyDataSetChanged();
+        
+        // Remove any existing listeners
+        removeListeners();
+        
+        // Set up listener for allowedRakazEmails collection
+        allowedEmailsListener = db.collection("schools").document(schoolId)
             .collection("allowedRakazEmails")
-            .get()
-            .addOnCompleteListener(emailsTask -> {
-                if (emailsTask.isSuccessful()) {
-                    List<String> allowedEmails = new ArrayList<>();
-                    for (QueryDocumentSnapshot document : emailsTask.getResult()) {
-                        String email = document.getId();
-                        allowedEmails.add(email);
-                    }
-                    
-                    // Now load the actual rakazim who have registered
-                    loadRegisteredRakazim(allowedEmails);
-                } else {
-                    Log.e(TAG, "Error getting allowed emails", emailsTask.getException());
+            .addSnapshotListener((snapshot, e) -> {
+                if (e != null) {
+                    Log.e(TAG, "Error listening for allowed emails", e);
                     showError("שגיאה בטעינת דוא\"ל מורשים");
                     showLoading(false);
+                    return;
+                }
+                
+                if (snapshot != null) {
+                    List<String> allowedEmails = new ArrayList<>();
+                    for (QueryDocumentSnapshot document : snapshot) {
+                        String email = document.getId();
+                        if (!email.equals("_init") && !email.equals("_dummy")) {
+                            allowedEmails.add(email);
+                        }
+                    }
+                    
+                    // Set up listener for registered rakazim
+                    setupRakazimListener(allowedEmails);
                 }
             });
     }
     
-    private void loadRegisteredRakazim(List<String> allowedEmails) {
-        // Load registered rakazim from the rakazim collection
-        db.collection("schools").document(schoolId)
+    private void setupRakazimListener(List<String> allowedEmails) {
+        // Clear existing rakaz list to rebuild it
+        rakazList.clear();
+        
+        Log.d(TAG, "Setting up real-time listener for rakazim");
+        
+        // Set up listener for registered rakazim - using EXPLICIT listener settings for better real-time updates
+        rakazimListener = db.collection("schools").document(schoolId)
             .collection("rakazim")
-            .get()
-            .addOnCompleteListener(rakazimTask -> {
-                if (rakazimTask.isSuccessful()) {
+            .addSnapshotListener((rakazimSnapshot, rakazimError) -> {
+                // Log when changes are detected
+                Log.d(TAG, "Rakaz collection changed - updating UI");
+                if (rakazimError != null) {
+                    Log.e(TAG, "Error listening for rakazim", rakazimError);
+                    showError("שגיאה בטעינת רכזים");
+                    showLoading(false);
+                    return;
+                }
+                
+                if (rakazimSnapshot != null) {
+                    // Clear list to rebuild it with both registered and unregistered rakazim
                     rakazList.clear();
                     
-                    for (QueryDocumentSnapshot document : rakazimTask.getResult()) {
+                    // Track if all rakaz documents have been processed
+                    final int[] rakazDocCount = {0};
+                    final int totalDocCount = rakazimSnapshot.size();
+                    
+                    // If no registered rakazim, go straight to unregistered
+                    if (totalDocCount == 0) {
+                        addUnregisteredRakazimWithListener(allowedEmails);
+                        return;
+                    }
+                    
+                    // Process each registered rakaz
+                    for (QueryDocumentSnapshot document : rakazimSnapshot) {
                         String username = document.getId();
                         String firstName = document.getString("firstName");
                         String lastName = document.getString("lastName");
@@ -167,17 +218,17 @@ public class manageRakaz extends AppCompatActivity {
                         
                         // Create final copy of fullName for use in lambda
                         final String finalFullName = fullName;
+                        final String finalUsername = username;
                         
                         // Fetch detailed info from allowedRakazEmails
-                        final String finalUsername = username;
                         fetchRakazDetailsFromAllowedEmails(email, username, (detailedFullName, registeredUsername, assignedMegama) -> {
-                            // Use the name from allowedRakazEmails if available, otherwise use what we have
+                            // Use the name from allowedRakazEmails if available
                             String displayName = detailedFullName != null ? detailedFullName : 
-                                                (finalFullName != null ? finalFullName : "שם לא ידוע");
+                                (finalFullName != null ? finalFullName : "שם לא ידוע");
                             
                             // Check if this rakaz has created a megama
                             checkMegamaDetailsAndExistence(finalUsername, (hasMegama, megamaName) -> {
-                                // Create rakaz item with complete information
+                                // Create rakaz item with complete info
                                 RakazItem rakazItem = new RakazItem(
                                     finalUsername,
                                     displayName,
@@ -192,91 +243,120 @@ public class manageRakaz extends AppCompatActivity {
                                 rakazList.add(rakazItem);
                                 rakazAdapter.notifyDataSetChanged();
                                 
-                                // Remove from allowed emails list to track unregistered rakazim
+                                // Remove from allowed emails to track unregistered
                                 if (email != null) {
                                     allowedEmails.remove(email);
                                 }
                                 
-                                // If this was the last rakaz, add unregistered ones
-                                if (document.equals(rakazimTask.getResult().getDocuments().get(rakazimTask.getResult().size() - 1))) {
-                                    addUnregisteredRakazim(allowedEmails);
+                                // Track completion and handle unregistered rakazim
+                                rakazDocCount[0]++;
+                                if (rakazDocCount[0] >= totalDocCount) {
+                                    addUnregisteredRakazimWithListener(allowedEmails);
                                 }
                             });
                         });
                     }
-                    
-                    // If there are no registered rakazim, just add the unregistered ones
-                    if (rakazimTask.getResult().isEmpty()) {
-                        addUnregisteredRakazim(allowedEmails);
-                    }
-                } else {
-                    Log.e(TAG, "Error getting rakazim", rakazimTask.getException());
-                    showError("שגיאה בטעינת רכזים");
-                    showLoading(false);
                 }
             });
     }
     
-    private void addUnregisteredRakazim(List<String> allowedEmails) {
-        // Add unregistered but allowed rakazim to the list
-        for (String email : allowedEmails) {
-            // Skip dummy/initialization entries
-            if (email.equals("_init") || email.equals("_dummy")) {
-                continue;
-            }
-            
-            // Fetch detailed info for unregistered rakaz
-            fetchRakazDetailsFromAllowedEmails(email, "", (detailedFullName, registeredUsername, assignedMegama) -> {
-                String displayName = detailedFullName != null ? detailedFullName : "רכז לא רשום";
-                
-                RakazItem rakazItem = new RakazItem(
-                    "",  // No username for unregistered rakazim
-                    displayName,
-                    email,
-                    false,  // No megama for unregistered rakazim
-                    false,  // Not registered
-                    null,  // No megama name
-                    assignedMegama  // Assigned megama from allowedRakazEmails
-                );
-                
-                rakazAdapter.notifyDataSetChanged();
-            });
-        }
-        
-        // Check if we're processing the last item in the list
+    private void addUnregisteredRakazimWithListener(List<String> allowedEmails) {
+        // Process unregistered rakazim
         if (allowedEmails.isEmpty()) {
-            // Update UI when all emails have been processed
+            // No unregistered rakazim to add
             runOnUiThread(() -> {
-                rakazAdapter.notifyDataSetChanged();
                 showLoading(false);
-                
-                // Show empty state if there are no rakazim
                 if (rakazList.isEmpty()) {
                     showEmptyState(true);
                 } else {
                     showEmptyState(false);
                 }
             });
+            return;
+        }
+        
+        // Track completion status
+        final int[] processedCount = {0};
+        final int totalCount = allowedEmails.size();
+        
+        // Process each unregistered rakaz
+        for (String email : allowedEmails) {
+            fetchRakazDetailsFromAllowedEmails(email, "", (detailedFullName, registeredUsername, assignedMegama) -> {
+                String displayName = detailedFullName != null ? detailedFullName : "רכז לא רשום";
+                
+                RakazItem rakazItem = new RakazItem(
+                    "",  // No username for unregistered
+                    displayName,
+                    email,
+                    false,  // No megama for unregistered
+                    false,  // Not registered
+                    null,   // No megama name
+                    assignedMegama  // Assigned megama
+                );
+                
+                // Add to list and update UI
+                rakazList.add(rakazItem);
+                rakazAdapter.notifyDataSetChanged();
+                
+                // Track completion
+                processedCount[0]++;
+                if (processedCount[0] >= totalCount) {
+                    runOnUiThread(() -> {
+                        showLoading(false);
+                        if (rakazList.isEmpty()) {
+                            showEmptyState(true);
+                        } else {
+                            showEmptyState(false);
+                        }
+                    });
+                }
+            });
         }
     }
     
-    private void checkMegamaExists(String rakazUsername, MegamaCheckCallback callback) {
-        // Check if megama exists for this rakaz
-        db.collection("schools").document(schoolId)
-            .collection("megamot")
-            .document(rakazUsername)
-            .get()
-            .addOnCompleteListener(task -> {
-                if (task.isSuccessful() && task.getResult() != null) {
-                    callback.onResult(task.getResult().exists());
-                } else {
-                    callback.onResult(false);
-                }
-            });
+    // Remove all listeners to prevent memory leaks
+    private void removeListeners() {
+        if (allowedEmailsListener != null) {
+            allowedEmailsListener.remove();
+            allowedEmailsListener = null;
+        }
+        
+        if (rakazimListener != null) {
+            rakazimListener.remove();
+            rakazimListener = null;
+        }
     }
     
-    private interface MegamaCheckCallback {
-        void onResult(boolean hasMegama);
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        // Clean up listeners
+        removeListeners();
+    }
+    
+    @Override
+    protected void onResume() {
+        super.onResume();
+        
+        // Reload data when activity resumes (e.g., after editing a rakaz)
+        if (schoolId != null && !schoolId.isEmpty()) {
+            loadRakazim();
+        }
+    }
+    
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        
+        // Handle result from EditRakazActivity (registered rakaz)
+        if ((requestCode == 1001 || requestCode == 1002) && resultCode == RESULT_OK) {
+            // Force immediate refresh - works for both registered and unregistered rakazim
+            Log.d(TAG, "Returned from edit activity (request code: " + requestCode + ") - forcing refresh");
+            rakazList.clear();
+            rakazAdapter.notifyDataSetChanged();
+            removeListeners();
+            loadRakazim();
+        }
     }
     
     private void showLoading(boolean show) {
@@ -406,15 +486,16 @@ public class manageRakaz extends AppCompatActivity {
                 if (rakazItem.getUsername().isEmpty()) {
                     // Unregistered rakaz
                     Toast.makeText(manageRakaz.this, "רכז טרם נרשם למערכת", Toast.LENGTH_SHORT).show();
-                } else if (rakazItem.hasMegama()) {
-                    // View megama - first check if the megama exists using its name as document ID
+                } else {
+                    // Always check if megama exists, regardless of hasMegama flag
+                    // First try to get megama name from the item
                     final String megamaName = rakazItem.getMegamaName() != null ? 
-                                        rakazItem.getMegamaName() : 
-                                        rakazItem.getAssignedMegama();
+                                       rakazItem.getMegamaName() : 
+                                       rakazItem.getAssignedMegama();
                     
                     if (megamaName != null && !megamaName.isEmpty()) {
                         // Log for debugging
-                        Log.d(TAG, "Attempting to open megama: " + megamaName);
+                        Log.d(TAG, "Attempting to open megama: " + megamaName + " for rakaz: " + rakazItem.getUsername());
                         
                         // First check if the megama exists with megama name as document ID
                         db.collection("schools").document(schoolId)
@@ -423,15 +504,16 @@ public class manageRakaz extends AppCompatActivity {
                             .addOnCompleteListener(task -> {
                                 if (task.isSuccessful() && task.getResult() != null && task.getResult().exists()) {
                                     // Megama exists with name as document ID
+                                    Log.d(TAG, "Found megama document with megamaName: " + megamaName);
                                     Intent intent = new Intent(manageRakaz.this, MegamaPreview.class);
                                     intent.putExtra("schoolId", schoolId);
                                     intent.putExtra("rakazUsername", rakazItem.getUsername());
                                     intent.putExtra("isManager", true);
                                     intent.putExtra("megamaName", megamaName);
                                     intent.putExtra("megamaDocId", megamaName); // Use name as document ID
-                                    Log.d(TAG, "Opening megama with megamaName: " + megamaName);
                                     startActivity(intent);
                                 } else {
+                                    Log.d(TAG, "Megama not found with name: " + megamaName + ", trying with username: " + rakazItem.getUsername());
                                     // Try the old way with rakaz username as document ID
                                     db.collection("schools").document(schoolId)
                                         .collection("megamot").document(rakazItem.getUsername())
@@ -440,31 +522,24 @@ public class manageRakaz extends AppCompatActivity {
                                             if (usernameTask.isSuccessful() && usernameTask.getResult() != null && 
                                                 usernameTask.getResult().exists()) {
                                                 // Megama exists with username as document ID (old way)
+                                                Log.d(TAG, "Found megama document with username: " + rakazItem.getUsername());
                                                 Intent intent = new Intent(manageRakaz.this, MegamaPreview.class);
                                                 intent.putExtra("schoolId", schoolId);
                                                 intent.putExtra("rakazUsername", rakazItem.getUsername());
                                                 intent.putExtra("isManager", true);
                                                 intent.putExtra("megamaName", megamaName);
                                                 intent.putExtra("megamaDocId", rakazItem.getUsername()); // Old style
-                                                Log.d(TAG, "Opening megama with username as docId: " + rakazItem.getUsername());
                                                 startActivity(intent);
                                             } else {
                                                 // Megama doesn't exist at all
                                                 Log.e(TAG, "Megama not found with either name or username as document ID");
-                                                Toast.makeText(manageRakaz.this, "המגמה לא נמצאה במערכת", Toast.LENGTH_SHORT).show();
+                                                Toast.makeText(manageRakaz.this, "רכז טרם יצר את מגמת " + megamaName, Toast.LENGTH_SHORT).show();
                                             }
                                         });
                                 }
                             });
                     } else {
                         // No megama name available
-                        Toast.makeText(manageRakaz.this, "שם המגמה חסר", Toast.LENGTH_SHORT).show();
-                    }
-                } else {
-                    // No megama
-                    if (rakazItem.getAssignedMegama() != null && !rakazItem.getAssignedMegama().isEmpty()) {
-                        Toast.makeText(manageRakaz.this, "רכז טרם יצר את מגמת " + rakazItem.getAssignedMegama(), Toast.LENGTH_SHORT).show();
-                    } else {
                         Toast.makeText(manageRakaz.this, "רכז טרם יצר מגמה", Toast.LENGTH_SHORT).show();
                     }
                 }
@@ -472,12 +547,30 @@ public class manageRakaz extends AppCompatActivity {
             
             // Handle edit button click
             holder.editButton.setOnClickListener(v -> {
-                if (rakazItem.getUsername().isEmpty()) {
-                    // Can't edit unregistered rakaz
-                    Toast.makeText(manageRakaz.this, "רכז טרם נרשם למערכת", Toast.LENGTH_SHORT).show();
+                // Open edit activity for both registered and unregistered rakazim
+                Intent intent = new Intent(manageRakaz.this, EditRakazActivity.class);
+                intent.putExtra("schoolId", schoolId);
+                intent.putExtra("username", rakazItem.getUsername());
+                intent.putExtra("email", rakazItem.getEmail());
+                
+                // Parse first and last name from full name
+                String firstName = rakazItem.getFullName().split(" ").length > 0 ? 
+                                  rakazItem.getFullName().split(" ")[0] : "";
+                String lastName = rakazItem.getFullName().split(" ").length > 1 ? 
+                                 rakazItem.getFullName().split(" ")[1] : "";
+                
+                intent.putExtra("firstName", firstName);
+                intent.putExtra("lastName", lastName);
+                
+                // Different data based on registration status
+                if (rakazItem.isRegistered()) {
+                    intent.putExtra("megama", rakazItem.getMegamaName());
+                    intent.putExtra("isRegistered", true);
+                    startActivityForResult(intent, 1001); // Use request code for registered edit
                 } else {
-                    // TODO: Implement rakaz edit functionality
-                    Toast.makeText(manageRakaz.this, "עריכת רכז בפיתוח", Toast.LENGTH_SHORT).show();
+                    intent.putExtra("megama", rakazItem.getAssignedMegama());
+                    intent.putExtra("isRegistered", false);
+                    startActivityForResult(intent, 1002); // Use request code for unregistered edit
                 }
             });
             
@@ -520,40 +613,120 @@ public class manageRakaz extends AppCompatActivity {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("מחיקת רכז");
         builder.setMessage("האם למחוק את הרכז " + rakazItem.getEmail() + " מרשימת המורשים?");
-        builder.setPositiveButton("מחק", (dialog, which) -> {
-            deleteAllowedRakazEmail(rakazItem.getEmail());
+        
+        // Create cancel button
+        builder.setNegativeButton("בטל", (dialog, which) -> dialog.dismiss());
+        
+        // Create delete button with cooldown
+        final int[] countdown = {3}; // 3 second countdown
+        
+        builder.setPositiveButton("מחק", null); // We'll override this below
+        
+        AlertDialog dialog = builder.create();
+        dialog.setOnShowListener(dialogInterface -> {
+            Button deleteButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+            deleteButton.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
+            deleteButton.setEnabled(false);
+            
+            // Set initial transparency
+            deleteButton.setAlpha(0.3f);
+            
+            // Start countdown
+            new CountDownTimer(3000, 1000) {
+                @Override
+                public void onTick(long millisUntilFinished) {
+                    countdown[0] = (int) (millisUntilFinished / 1000) + 1;
+                    deleteButton.setText("מחק (" + countdown[0] + ")");
+                }
+                
+                @Override
+                public void onFinish() {
+                    deleteButton.setEnabled(true);
+                    deleteButton.setAlpha(1.0f);
+                    deleteButton.setText("מחק");
+                    
+                    // Set click listener for actual delete
+                    deleteButton.setOnClickListener(v -> {
+                        dialog.dismiss();
+                        deleteAllowedRakazEmail(rakazItem.getEmail());
+                    });
+                }
+            }.start();
         });
-        builder.setNegativeButton("בטל", null);
-        builder.show();
+        
+        dialog.show();
     }
     
     private void confirmDeleteRakaz(RakazItem rakazItem) {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("מחיקת רכז");
         builder.setMessage("האם למחוק את הרכז " + rakazItem.getFullName() + "?\n\nפעולה זו תמחק גם את המגמה אם קיימת!");
-        builder.setPositiveButton("מחק", (dialog, which) -> {
-            deleteRegisteredRakaz(rakazItem);
+        
+        // Create cancel button
+        builder.setNegativeButton("בטל", (dialog, which) -> dialog.dismiss());
+        
+        // Create delete button with cooldown
+        final int[] countdown = {3}; // 3 second countdown
+        
+        builder.setPositiveButton("מחק", null); // We'll override this below
+        
+        AlertDialog dialog = builder.create();
+        dialog.setOnShowListener(dialogInterface -> {
+            Button deleteButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+            deleteButton.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
+            deleteButton.setEnabled(false);
+            
+            // Set initial transparency
+            deleteButton.setAlpha(0.3f);
+            
+            // Start countdown
+            new CountDownTimer(3000, 1000) {
+                @Override
+                public void onTick(long millisUntilFinished) {
+                    countdown[0] = (int) (millisUntilFinished / 1000) + 1;
+                    deleteButton.setText("מחק (" + countdown[0] + ")");
+                }
+                
+                @Override
+                public void onFinish() {
+                    deleteButton.setEnabled(true);
+                    deleteButton.setAlpha(1.0f);
+                    deleteButton.setText("מחק");
+                    
+                    // Set click listener for actual delete
+                    deleteButton.setOnClickListener(v -> {
+                        dialog.dismiss();
+                        deleteRegisteredRakaz(rakazItem);
+                    });
+                }
+            }.start();
         });
-        builder.setNegativeButton("בטל", null);
-        builder.show();
+        
+        dialog.show();
     }
     
     private void deleteAllowedRakazEmail(String email) {
+        // Show loading indicator
+        showLoading(true);
+        
         db.collection("schools").document(schoolId)
             .collection("allowedRakazEmails").document(email)
             .delete()
             .addOnSuccessListener(aVoid -> {
                 Toast.makeText(manageRakaz.this, "הרכז הוסר בהצלחה", Toast.LENGTH_SHORT).show();
-                // Reload rakazim
-                loadRakazim();
+                // No need to reload - listeners will handle updates automatically
             })
             .addOnFailureListener(e -> {
                 Log.e(TAG, "Error deleting allowed email", e);
                 Toast.makeText(manageRakaz.this, "שגיאה במחיקת הרכז: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                showLoading(false);
             });
     }
     
     private void deleteRegisteredRakaz(RakazItem rakazItem) {
+        // Show loading during deletion
+        showLoading(true);
+        
         // Delete from rakazim collection
         db.collection("schools").document(schoolId)
             .collection("rakazim").document(rakazItem.getUsername())
@@ -563,23 +736,63 @@ public class manageRakaz extends AppCompatActivity {
                 if (rakazItem.getEmail() != null && !rakazItem.getEmail().isEmpty()) {
                     db.collection("schools").document(schoolId)
                         .collection("allowedRakazEmails").document(rakazItem.getEmail())
-                        .delete();
+                        .delete()
+                        .addOnSuccessListener(aVoid2 -> {
+                            // Check if megama exists first by its name
+                            if (rakazItem.getMegamaName() != null && !rakazItem.getMegamaName().isEmpty()) {
+                                // Try to delete megama by megama name first
+                                db.collection("schools").document(schoolId)
+                                    .collection("megamot").document(rakazItem.getMegamaName())
+                                    .delete()
+                                    .addOnSuccessListener(aVoid3 -> {
+                                        Toast.makeText(manageRakaz.this, "הרכז והמגמה הוסרו בהצלחה", Toast.LENGTH_SHORT).show();
+                                        // Data will refresh automatically via listeners
+                                    })
+                                    .addOnFailureListener(e -> {
+                                        // If failed, try by username
+                                        deleteMegamaByUsername(rakazItem);
+                                    });
+                            } else if (rakazItem.hasMegama()) {
+                                // Otherwise try by username
+                                deleteMegamaByUsername(rakazItem);
+                            } else {
+                                Toast.makeText(manageRakaz.this, "הרכז הוסר בהצלחה", Toast.LENGTH_SHORT).show();
+                                // Data will refresh automatically via listeners
+                            }
+                        })
+                        .addOnFailureListener(e -> {
+                            Log.e(TAG, "Error deleting allowed email", e);
+                            Toast.makeText(manageRakaz.this, "הרכז הוסר אך נכשל בהסרת האימייל המורשה", Toast.LENGTH_SHORT).show();
+                        });
+                } else {
+                    // If no email to delete, check if megama needs deletion
+                    if (rakazItem.hasMegama()) {
+                        deleteMegamaByUsername(rakazItem);
+                    } else {
+                        Toast.makeText(manageRakaz.this, "הרכז הוסר בהצלחה", Toast.LENGTH_SHORT).show();
+                        // Data will refresh automatically via listeners
+                    }
                 }
-                
-                // If megama exists, delete it too
-                if (rakazItem.hasMegama()) {
-                    db.collection("schools").document(schoolId)
-                        .collection("megamot").document(rakazItem.getUsername())
-                        .delete();
-                }
-                
-                Toast.makeText(manageRakaz.this, "הרכז הוסר בהצלחה", Toast.LENGTH_SHORT).show();
-                // Reload rakazim
-                loadRakazim();
             })
             .addOnFailureListener(e -> {
                 Log.e(TAG, "Error deleting rakaz", e);
                 Toast.makeText(manageRakaz.this, "שגיאה במחיקת הרכז: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                showLoading(false);
+            });
+    }
+    
+    private void deleteMegamaByUsername(RakazItem rakazItem) {
+        // Delete megama using username as document ID (old method)
+        db.collection("schools").document(schoolId)
+            .collection("megamot").document(rakazItem.getUsername())
+            .delete()
+            .addOnSuccessListener(aVoid -> {
+                Toast.makeText(manageRakaz.this, "הרכז והמגמה הוסרו בהצלחה", Toast.LENGTH_SHORT).show();
+                // Data will refresh automatically via listeners
+            })
+            .addOnFailureListener(e -> {
+                Log.e(TAG, "Error deleting megama", e);
+                Toast.makeText(manageRakaz.this, "הרכז הוסר אך נכשל בהסרת המגמה", Toast.LENGTH_SHORT).show();
             });
     }
     

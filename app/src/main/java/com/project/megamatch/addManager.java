@@ -1,10 +1,15 @@
 package com.project.megamatch;
 
+import android.app.Dialog;
 import android.content.Intent;
+import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
 import android.view.View;
+import android.view.ViewGroup;
+import android.view.Window;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -15,6 +20,7 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
+import com.google.android.material.button.MaterialButton;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.Timestamp;
 
@@ -131,7 +137,8 @@ public class addManager extends AppCompatActivity {
                         .collection("managers").document(username)
                         .set(managerData)
                         .addOnSuccessListener(aVoid -> {
-                            Toast.makeText(addManager.this, "המנהל נוסף בהצלחה", Toast.LENGTH_SHORT).show();
+                            // Show success dialog instead of Toast
+                            showSuccessDialog("המנהל נוסף בהצלחה!");
                             clearFields();
                             progressBar.setVisibility(View.GONE);
                             addButton.setEnabled(true);
@@ -143,6 +150,60 @@ public class addManager extends AppCompatActivity {
                         });
                 }
             });
+    }
+
+    /**
+     * Show a custom styled success dialog
+     * @param message The success message to display
+     */
+    private void showSuccessDialog(String message) {
+        // Create a dialog
+        Dialog customDialog = new Dialog(this);
+        customDialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        customDialog.setCancelable(false);
+        
+        // Set the custom layout
+        customDialog.setContentView(R.layout.success_dialog);
+        
+        // Get window to set layout parameters
+        Window window = customDialog.getWindow();
+        if (window != null) {
+            window.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            window.setBackgroundDrawable(new ColorDrawable(android.graphics.Color.TRANSPARENT));
+            
+            // Add custom animation
+            window.setWindowAnimations(R.style.DialogAnimation);
+        }
+        
+        // Set the success message
+        TextView messageView = customDialog.findViewById(R.id.dialogMessage);
+        if (messageView != null) {
+            messageView.setText(message);
+        }
+        
+        // Set the title
+        TextView titleView = customDialog.findViewById(R.id.dialogTitle);
+        if (titleView != null) {
+            titleView.setText("הוספת מנהל");
+        }
+        
+        // Set the success icon
+        ImageView iconView = customDialog.findViewById(R.id.successIcon);
+        if (iconView != null) {
+            // Use checkmark icon
+            iconView.setImageResource(R.drawable.ic_checkmark);
+        }
+        
+        // Set up the close button
+        MaterialButton closeButton = customDialog.findViewById(R.id.closeButton);
+        if (closeButton != null) {
+            closeButton.setOnClickListener(v -> {
+                customDialog.dismiss();
+            });
+        }
+        
+        // Show the dialog
+        customDialog.show();
     }
 
     private void clearFields() {
