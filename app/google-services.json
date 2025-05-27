@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "405260478312",
+    "project_id": "megamatch-77258",
+    "storage_bucket": "megamatch-77258.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:405260478312:android:701ef5b81917c1f3b458dd",
+        "android_client_info": {
+          "package_name": "com.project.megamatch"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA6mtpgLMG8CjH44Bt6VLJy86S-mlVXcww"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/loginPage"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/login_gradient_background"
+    android:padding="16dp">
+
+    <Button
+        android:id="@+id/adminButton"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:background="@android:color/transparent"
+        android:alpha="0.01"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <ImageView
+        android:id="@+id/titleTextView"
+        android:layout_width="220dp"
+        android:layout_height="wrap_content"
+        android:src="@drawable/megamatch_text"
+        android:layout_marginTop="32dp"
+        android:layout_marginBottom="16dp"
+        android:adjustViewBounds="true"
+        android:contentDescription="MegaMatch"
+        android:translationY="30dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/cardView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="24dp"
+        app:cardCornerRadius="16dp"
+        app:cardElevation="8dp"
+        app:layout_constraintTop_toBottomOf="@id/titleTextView"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="32dp"
+            android:gravity="center">
+
+            <ImageView
+                android:id="@+id/logoImageView"
+                android:layout_width="160dp"
+                android:layout_height="160dp"
+                android:src="@drawable/icon_white"
+                android:contentDescription="@string/app_name"/>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/exploreSchoolButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="צפה במגמות ביה''ס"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="16dp"
+                android:onClick="moveToSchoolSelect"
+                app:icon="@drawable/ic_graduation_cap"
+                app:iconGravity="textStart"
+                app:iconPadding="8dp"
+                app:iconTint="@color/white"
+                app:strokeWidth="2dp"
+                style="@style/Widget.MegaMatch.Button"/>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/loginRakazButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="התחבר כרכז מקצוע"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="32dp"
+                android:onClick="moveToRakazLogin"
+                app:icon="@drawable/ic_coordinator_gavel"
+                app:iconGravity="textStart"
+                app:iconPadding="8dp"
+                app:iconTint="@color/white"
+                app:strokeWidth="2dp"
+                style="@style/Widget.MegaMatch.Button"/>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/creditsButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="אודות"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:onClick="moveToCredits"
+                    app:icon="@drawable/ic_about"
+                    app:iconGravity="textStart"
+                    app:iconPadding="4dp"
+                    app:iconTint="@color/white"
+                    style="@style/Widget.MegaMatch.Button"
+                    android:layout_marginEnd="8dp"/>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/helpButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="עזרה"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:onClick="moveToHelp"
+                    app:icon="@drawable/ic_help"
+                    app:iconGravity="textStart"
+                    app:iconPadding="4dp"
+                    app:iconTint="@color/white"
+                    style="@style/Widget.MegaMatch.Button"
+                    android:layout_marginStart="8dp"/>
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+    </com.google.android.material.card.MaterialCardView>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

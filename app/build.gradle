@@ -1,0 +1,108 @@
+plugins {
+    alias(libs.plugins.android.application)
+    id 'com.google.gms.google-services'
+}
+
+android {
+    namespace 'com.project.megamatch'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.project.megamatch"
+        minSdk 27
+        targetSdk 33
+        versionCode 1
+        versionName "1.0"
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        
+        // Enable multidex for large apps if needed
+        multiDexEnabled true
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+        debug {
+            // Enable minification in debug for testing
+            minifyEnabled false
+            // Apply custom proguard rules for debug builds
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules-debug.pro'
+        }
+    }
+    
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+    
+    buildFeatures {
+        viewBinding true
+        // Disable unused features
+        buildConfig false
+        aidl false
+        renderScript false
+        resValues false
+        shaders false
+    }
+    
+    // Exclude unused resources
+    aaptOptions {
+        cruncherEnabled = false
+    }
+    
+    // Optimize dexing
+    dexOptions {
+        preDexLibraries true
+        javaMaxHeapSize "6g"
+    }
+    
+    // Lint options to speed up builds
+    lintOptions {
+        checkReleaseBuilds false
+        abortOnError false
+    }
+}
+
+dependencies {
+    // Core Android dependencies
+    implementation("androidx.appcompat:appcompat:1.7.0")
+    implementation("com.google.android.material:material:1.12.0")
+    implementation("androidx.constraintlayout:constraintlayout:2.1.4")
+    implementation 'androidx.activity:activity:1.8.0'
+    
+    // MultiDex support
+    implementation 'androidx.multidex:multidex:2.0.1'
+    
+    // Navigation - use more specific imports instead of full libraries
+    implementation("androidx.navigation:navigation-fragment:2.8.3")
+    implementation("androidx.navigation:navigation-ui:2.8.3")
+    
+    // Image loading and GIF support - optimize Glide settings
+    implementation("com.github.bumptech.glide:glide:4.15.1") {
+        exclude group: "com.android.support"
+    }
+    annotationProcessor("com.github.bumptech.glide:compiler:4.15.1")
+    implementation 'pl.droidsonroids.gif:android-gif-drawable:1.2.22'
+    
+    // Firebase (using BoM for version management)
+    implementation platform('com.google.firebase:firebase-bom:33.10.0')
+    implementation 'com.google.firebase:firebase-analytics'
+    implementation 'com.google.firebase:firebase-firestore'
+    implementation 'com.google.firebase:firebase-auth'
+    
+    // Authentication - more targeted imports
+    implementation 'com.google.android.gms:play-services-auth:20.7.0'
+    
+    // Supabase Storage integration - Java compatible
+    implementation 'com.squareup.okhttp3:okhttp:4.11.0'
+    implementation 'com.google.code.gson:gson:2.10.1'
+    
+    // Testing (only needed for test builds)
+    testImplementation("junit:junit:4.13.2")
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
+}
