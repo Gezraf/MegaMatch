@@ -250,7 +250,10 @@ public class MegamaAttachments extends AppCompatActivity {
                     if (rakazMegamaName != null && !rakazMegamaName.isEmpty()) {
                         // Use the megama name from the rakaz document
                         megamaName = rakazMegamaName;
-                        megamaText.setText("מגמת " + megamaName + "!");
+                        Log.d(TAG, "Setting megamaName to: " + megamaName);
+                        
+                        // Don't set the text yet, we'll do that in updateUIWithMegamaDetails
+                        // after checking if the megama exists in Firestore
                         
                         // Fetch the megama details
                         fetchMegamaDataFromFirestore(megamaName);
@@ -351,11 +354,30 @@ public class MegamaAttachments extends AppCompatActivity {
         // Update the UI with the current megama details
         Log.d(TAG, "Updating UI with current megama details");
         
-        // Set create button text based on whether we're updating or creating
+        // We need to check if the megama document actually exists in Firestore
         if (megamaName != null && !megamaName.isEmpty()) {
-            createMegamaButton.setText("עדכון מגמה");
+            fireDB.collection("schools").document(schoolId)
+                  .collection("megamot").document(megamaName)
+                  .get()
+                  .addOnSuccessListener(documentSnapshot -> {
+                      if (documentSnapshot.exists()) {
+                          // If megama exists, set to "update"
+                          createMegamaButton.setText("עדכון מגמה");
+                          megamaText.setText("עדכון מגמת " + megamaName);
+                      } else {
+                          // If megama doesn't exist yet, set to "create"
+                          createMegamaButton.setText("יצירת מגמה");
+                          megamaText.setText("יצירת מגמת " + megamaName);
+                      }
+                  })
+                  .addOnFailureListener(e -> {
+                      // On failure, default to create
+                      createMegamaButton.setText("יצירת מגמה");
+                      megamaText.setText("יצירת מגמת " + megamaName);
+                  });
         } else {
             createMegamaButton.setText("יצירת מגמה");
+            megamaText.setText("יצירת מגמה חדשה!");
         }
         
         // If we have images, expand the image section
@@ -552,9 +574,12 @@ public class MegamaAttachments extends AppCompatActivity {
         
         // Check for required fields
         if (megamaName == null || megamaName.isEmpty()) {
+            Log.e(TAG, "Error: megamaName is null or empty in createNewMegama");
             Toast.makeText(this, "שגיאה: שם מגמה חסר", Toast.LENGTH_SHORT).show();
             return;
         }
+        
+        Log.d(TAG, "Creating/updating megama with name: " + megamaName);
         
         if (megamaDescription == null || megamaDescription.isEmpty()) {
             Toast.makeText(this, "שגיאה: תיאור מגמה חסר", Toast.LENGTH_SHORT).show();
@@ -587,7 +612,7 @@ public class MegamaAttachments extends AppCompatActivity {
             }
         }, 10000); // 10 seconds timeout
         
-        // Always treat this as an update if we got the megama name from the rakaz document
+        // Check if the megama already exists in Firestore before proceeding
         Log.d(TAG, "Processing megama with name: " + megamaName);
         
         // Create Megama object with all parameters

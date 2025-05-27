@@ -141,6 +141,19 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+
+        <activity
+            android:name=".managerLogin"
+            android:exported="false" />
+        <activity
+            android:name=".managerPage"
+            android:exported="false" />
+        <activity
+            android:name=".manageRakaz"
+            android:exported="false" />
+        <activity
+            android:name=".addRakaz"
+            android:exported="false" />
     </application>
 
 </manifest>

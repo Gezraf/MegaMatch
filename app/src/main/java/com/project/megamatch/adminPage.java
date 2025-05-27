@@ -25,9 +25,7 @@ public class adminPage extends AppCompatActivity {
     }
 
     public void moveToSchoolSelect(View view) {
-        Intent intent = new Intent(adminPage.this, schoolSelect.class);
-        // Set flag to indicate this is an admin login
-        intent.putExtra("isAdminLogin", true);
+        Intent intent = new Intent(adminPage.this, managerLogin.class);
         startActivity(intent);
     }
 

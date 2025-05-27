@@ -2,10 +2,33 @@
 <androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:id="@+id/rakazLogin"
+    android:id="@+id/managerLogin"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/gradient_background">
+
+    <ImageButton
+        android:id="@+id/backButton"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:src="@drawable/ic_arrow_back"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="חזור"
+        android:onClick="goBack"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <ImageView
+        android:id="@+id/titleTextView"
+        android:layout_width="220dp"
+        android:layout_height="wrap_content"
+        android:src="@drawable/megamatch_text"
+        android:layout_marginTop="32dp"
+        android:adjustViewBounds="true"
+        android:contentDescription="MegaMatch"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
 
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/cardView"
@@ -14,7 +37,7 @@
         android:layout_margin="24dp"
         app:cardCornerRadius="16dp"
         app:cardElevation="8dp"
-        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/titleTextView"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
@@ -29,7 +52,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="התחברות כרכז"
+                android:text="התחברות כמנהל ביה''ס"
                 android:textAppearance="@style/TextAppearance.MegaMatch.HeadlineMedium"
                 android:layout_marginBottom="32dp"/>
 
@@ -44,13 +67,32 @@
                 app:hintEnabled="true"
                 app:hintAnimationEnabled="true">
 
-                <AutoCompleteTextView
-                    android:id="@+id/schoolAutocomplete"
+                    <AutoCompleteTextView
+        android:id="@+id/schoolAutocomplete"
+        android:background="@drawable/text_input_background"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:inputType="text"
                     android:textAlignment="center"
                     android:imeOptions="actionNext"/>
+
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/usernameInputLayout"
+                style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:startIconDrawable="@drawable/ic_username"
+                android:hint="שם משתמש">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/usernameInput"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="text"
+                    android:textAlignment="center"/>
 
             </com.google.android.material.textfield.TextInputLayout>
 
@@ -68,7 +110,6 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:inputType="number"
-                    android:maxLength="9"
                     android:textAlignment="center"/>
 
             </com.google.android.material.textfield.TextInputLayout>
@@ -92,33 +133,32 @@
 
             </com.google.android.material.textfield.TextInputLayout>
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/rakazLoginButton"
+            <FrameLayout
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="התחבר"
-                android:textSize="16sp"
-                app:icon="@drawable/ic_login_door"
-                app:iconGravity="textStart"
-                app:iconPadding="8dp"
-                app:iconTint="@color/white"
-                style="@style/Widget.MegaMatch.Button"/>
+                android:layout_height="wrap_content">
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/noAccountButton"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="אין לי חשבון רכז מקצוע"
-                android:textSize="14sp"
-                android:onClick="moveToRakazRegister"
-                app:icon="@drawable/ic_register"
-                app:iconGravity="textStart"
-                app:iconPadding="8dp"
-                style="@style/Widget.MegaMatch.Button.Outlined"/>
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/managerLoginButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="התחבר"
+                    android:textSize="16sp"
+                    app:icon="@drawable/ic_login_door"
+                    app:iconGravity="textStart"
+                    app:iconPadding="8dp"
+                    app:iconTint="@color/white"
+                    style="@style/Widget.MegaMatch.Button"/>
+
+                <ProgressBar
+                    android:id="@+id/progressBar"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:layout_gravity="center"
+                    android:visibility="gone"/>
+            </FrameLayout>
 
         </LinearLayout>
 
     </com.google.android.material.card.MaterialCardView>
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+</androidx.constraintlayout.widget.ConstraintLayout> 

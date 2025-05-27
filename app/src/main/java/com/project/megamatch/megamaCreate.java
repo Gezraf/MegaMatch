@@ -258,7 +258,8 @@ public class megamaCreate extends AppCompatActivity {
                       // טעינת שם מגמה
                       megamaName = documentSnapshot.getString("megama");
                       if (megamaName != null && !megamaName.isEmpty()) {
-                          megamaText.setText("עדכון מגמת " + megamaName);
+                          // Don't set title text yet - let fetchMegamaDataFromFirestore determine 
+                          // whether to show "יצירת מגמה" or "עדכון מגמה" based on megama existence
                           
                           // Now that we have the megama name, fetch the full megama data directly from Firestore
                           fetchMegamaDataFromFirestore(megamaName);
@@ -308,7 +309,8 @@ public class megamaCreate extends AppCompatActivity {
                       // טעינת שם מגמה
                       megamaName = documentSnapshot.getString("megama");
                       if (megamaName != null && !megamaName.isEmpty()) {
-                          megamaText.setText("עדכון מגמת " + megamaName);
+                          // Don't set title text yet - let fetchMegamaDataFromFirestore determine 
+                          // whether to show "יצירת מגמה" or "עדכון מגמה" based on megama existence
                           
                           // Now that we have the megama name, fetch the full megama data directly from Firestore
                           fetchMegamaDataFromFirestore(megamaName);
@@ -335,11 +337,19 @@ public class megamaCreate extends AppCompatActivity {
     
     // Fetch megama data directly from Firestore
     private void fetchMegamaDataFromFirestore(String megamaName) {
+        Log.d("MegamaCreate", "Fetching megama data for: " + megamaName);
+        
+        // Store the megama name to this.megamaName to ensure it's available for the next steps
+        this.megamaName = megamaName;
+        
         fireDB.collection("schools").document(schoolId)
               .collection("megamot").document(megamaName)
               .get()
               .addOnSuccessListener(documentSnapshot -> {
                   if (documentSnapshot.exists()) {
+                      // Megama document exists, set title to "Update"
+                      megamaText.setText("עדכון מגמת " + megamaName);
+                      
                       // Get data from Firestore document
                       String description = documentSnapshot.getString("description");
                       Boolean requiresExam = documentSnapshot.getBoolean("requiresExam");
@@ -377,6 +387,9 @@ public class megamaCreate extends AppCompatActivity {
                           }
                       }
                   } else {
+                      // Megama document doesn't exist yet, set title to "Create" instead of "Update"
+                      megamaText.setText("יצירת מגמת " + megamaName);
+                      
                       // If document doesn't exist, fall back to intent extras
                       loadFromIntent();
                   }
@@ -390,8 +403,12 @@ public class megamaCreate extends AppCompatActivity {
     
     // Load data from intent extras (fallback method)
     private void loadFromIntent() {
-        // Get data from intent extras
-        megamaName = getIntent().getStringExtra("megamaName");
+        // Only set megamaName from intent if it's currently null or empty
+        // This preserves the megama name we got from the rakaz document
+        if (megamaName == null || megamaName.isEmpty()) {
+            megamaName = getIntent().getStringExtra("megamaName");
+        }
+        
         String description = getIntent().getStringExtra("megamaDescription");
         boolean requiresExam = getIntent().getBooleanExtra("requiresExam", false);
         boolean requiresGradeAvg = getIntent().getBooleanExtra("requiresGradeAvg", false);
@@ -439,12 +456,15 @@ public class megamaCreate extends AppCompatActivity {
         }
         
         if (megamaName == null || megamaName.isEmpty()) {
+            Log.e("MegamaCreate", "Error: megamaName is null or empty in continueToBuildingMegama");
             Toast.makeText(this, "שגיאה: לא נמצא שם מגמה", Toast.LENGTH_SHORT).show();
             // Reset button state
             createMegamaButton.setEnabled(true);
             createMegamaButton.setText("המשך");
             return;
         }
+        
+        Log.d("MegamaCreate", "Proceeding with megama name: " + megamaName);
         
         // טיפול בציון ממוצע אם נדרש
         int requiredGradeAvg = 0;

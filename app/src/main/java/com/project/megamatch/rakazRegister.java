@@ -38,7 +38,7 @@ import java.util.Set;
 public class rakazRegister extends AppCompatActivity {
 
     private AutoCompleteTextView schoolAutocomplete;
-    private EditText firstNameInput, lastNameInput, emailInput, usernameInput, passwordInput, confirmPasswordInput, megamaInput;
+    private EditText idInput, emailInput, usernameInput, passwordInput, confirmPasswordInput;
     private ProgressBar progressBar;
     private FirebaseFirestore fireDB;
     private static final String TAG = "RakazRegister";
@@ -62,13 +62,11 @@ public class rakazRegister extends AppCompatActivity {
 
         // קישור לרכיבי UI
         schoolAutocomplete = findViewById(R.id.schoolAutocomplete);
-        firstNameInput = findViewById(R.id.firstNameInput);
-        lastNameInput = findViewById(R.id.lastNameInput);
+        idInput = findViewById(R.id.idInput);
         emailInput = findViewById(R.id.emailInput);
         usernameInput = findViewById(R.id.usernameInput);
         passwordInput = findViewById(R.id.passwordInput);
         confirmPasswordInput = findViewById(R.id.confirmPasswordInput);
-        megamaInput = findViewById(R.id.megamaInput);
         progressBar = findViewById(R.id.progressBar);
 
         // אתחול FirebaseFirestore
@@ -98,8 +96,8 @@ public class rakazRegister extends AppCompatActivity {
                 
                 if (selectedSchool != null) {
                     schoolAutocomplete.setText(selectedSchool.getSchoolName());
-                    // Focus on the next field (firstName)
-                    firstNameInput.requestFocus();
+                    // Focus on the next field (ID)
+                    idInput.requestFocus();
                 }
             }
         }
@@ -387,32 +385,27 @@ public class rakazRegister extends AppCompatActivity {
 
         // קבלת ערכי הקלט
         String schoolId = String.valueOf(selectedSchool.getSchoolId());
-        String firstName = firstNameInput.getText().toString().trim();
-        String lastName = lastNameInput.getText().toString().trim();
+        String id = idInput.getText().toString().trim();
         String email = emailInput.getText().toString().trim();
         String username = usernameInput.getText().toString().trim();
         String password = passwordInput.getText().toString().trim();
-        String megama = megamaInput.getText().toString().trim();
 
         // בדיקה האם האימייל מאושר ברשימת allowedRakazEmails
-        checkAllowedRakazEmail(schoolId, email, firstName, lastName, username, password, megama);
+        checkAllowedRakazEmail(schoolId, email, id, username, password);
     }
 
     // בדיקת תקינות הקלט
     private boolean validateInput() {
-        String firstName = firstNameInput.getText().toString().trim();
-        String lastName = lastNameInput.getText().toString().trim();
+        String id = idInput.getText().toString().trim();
         String email = emailInput.getText().toString().trim();
         String username = usernameInput.getText().toString().trim();
         String password = passwordInput.getText().toString().trim();
         String confirmPassword = confirmPasswordInput.getText().toString().trim();
-        String megama = megamaInput.getText().toString().trim();
 
         // בדיקת שדות ריקים
-        if (selectedSchool == null || TextUtils.isEmpty(firstName) ||
-                TextUtils.isEmpty(lastName) || TextUtils.isEmpty(email) ||
-                TextUtils.isEmpty(username) || TextUtils.isEmpty(password) ||
-                TextUtils.isEmpty(confirmPassword) || TextUtils.isEmpty(megama)) {
+        if (selectedSchool == null || TextUtils.isEmpty(id) ||
+                TextUtils.isEmpty(email) || TextUtils.isEmpty(username) || 
+                TextUtils.isEmpty(password) || TextUtils.isEmpty(confirmPassword)) {
             if (selectedSchool == null) {
                 Toast.makeText(this, "נא לבחור בית ספר", Toast.LENGTH_SHORT).show();
             } else {
@@ -424,6 +417,12 @@ public class rakazRegister extends AppCompatActivity {
         // בדיקת תקינות האימייל
         if (!Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
             Toast.makeText(this, "נא להזין כתובת אימייל תקינה", Toast.LENGTH_SHORT).show();
+            return false;
+        }
+        
+        // בדיקת תקינות תעודת זהות (9 ספרות)
+        if (id.length() != 9) {
+            Toast.makeText(this, "תעודת זהות חייבת להיות 9 ספרות", Toast.LENGTH_SHORT).show();
             return false;
         }
 
@@ -449,8 +448,8 @@ public class rakazRegister extends AppCompatActivity {
     }
 
     // בדיקה האם האימייל מאושר ברשימת allowedRakazEmails
-    private void checkAllowedRakazEmail(String schoolId, String email, String firstName, 
-                                       String lastName, String username, String password, String megama) {
+    private void checkAllowedRakazEmail(String schoolId, String email, String id,
+                                       String username, String password) {
         // Normalize the email by trimming and converting to lowercase
         String normalizedEmail = email.trim().toLowerCase();
         
@@ -463,7 +462,7 @@ public class rakazRegister extends AppCompatActivity {
                 .get()
                 .addOnSuccessListener(documentSnapshot -> {
                     if (documentSnapshot.exists()) {
-                        handleEmailDocumentFound(documentSnapshot, schoolId, normalizedEmail, firstName, lastName, username, password, megama);
+                        handleEmailDocumentFound(documentSnapshot, schoolId, normalizedEmail, id, username, password);
                     } else {
                         // If not found, try querying the collection where email field equals the input
                         Log.d(TAG, "Email not found as document ID, trying to query by email field");
@@ -476,7 +475,7 @@ public class rakazRegister extends AppCompatActivity {
                                         // Found by email field
                                         DocumentSnapshot doc = querySnapshot.getDocuments().get(0);
                                         Log.d(TAG, "Found email in query: " + doc.getId());
-                                        handleEmailDocumentFound(doc, schoolId, normalizedEmail, firstName, lastName, username, password, megama);
+                                        handleEmailDocumentFound(doc, schoolId, normalizedEmail, id, username, password);
                                     } else {
                                         // Try one more time with the original case of the email
                                         Log.d(TAG, "Email not found in query, trying with original case: " + email);
@@ -486,7 +485,7 @@ public class rakazRegister extends AppCompatActivity {
                                                 .addOnSuccessListener(docSnapshot -> {
                                                     if (docSnapshot.exists()) {
                                                         Log.d(TAG, "Found email with original case");
-                                                        handleEmailDocumentFound(docSnapshot, schoolId, email, firstName, lastName, username, password, megama);
+                                                        handleEmailDocumentFound(docSnapshot, schoolId, email, id, username, password);
                                                     } else {
                                                         // Not found in any attempt
                                                         progressBar.setVisibility(View.GONE);
@@ -506,16 +505,18 @@ public class rakazRegister extends AppCompatActivity {
     }
     
     private void handleEmailDocumentFound(DocumentSnapshot documentSnapshot, String schoolId, String email, 
-                                         String firstName, String lastName, String username, String password, String megama) {
+                                         String id, String username, String password) {
                         // Email exists in allowed list, check if approved and not already registered
                         Boolean approved = documentSnapshot.getBoolean("approved");
                         Boolean registered = documentSnapshot.getBoolean("registered");
+                        String storedId = documentSnapshot.getString("id");
                         String storedFirstName = documentSnapshot.getString("firstName");
                         String storedLastName = documentSnapshot.getString("lastName");
+                        String storedMegama = documentSnapshot.getString("megama");
 
         Log.d(TAG, "Email found. Approved: " + approved + ", Registered: " + registered);
-        Log.d(TAG, "Stored name: " + storedFirstName + " " + storedLastName);
-        Log.d(TAG, "Input name: " + firstName + " " + lastName);
+        Log.d(TAG, "Stored ID: " + storedId);
+        Log.d(TAG, "Input ID: " + id);
 
                         if (approved == null || !approved) {
                             progressBar.setVisibility(View.GONE);
@@ -533,17 +534,17 @@ public class rakazRegister extends AppCompatActivity {
                             return;
                         }
 
-                        // Verify that first and last name match
-                        if (!firstName.equals(storedFirstName) || !lastName.equals(storedLastName)) {
+                        // Verify that ID matches
+                        if (storedId == null || !storedId.equals(id)) {
                             progressBar.setVisibility(View.GONE);
                             Toast.makeText(rakazRegister.this, 
-                                    "השם הפרטי ושם המשפחה אינם תואמים לאימייל המאושר", 
+                                    "תעודת הזהות אינה תואמת לאימייל המאושר", 
                                     Toast.LENGTH_LONG).show();
                             return;
                         }
 
                         // Proceed with registration - check if username already exists
-                        checkUsernameExists(schoolId, email, firstName, lastName, username, password, megama);
+                        checkUsernameExists(schoolId, email, storedFirstName, storedLastName, username, password, storedMegama);
                     }
     
     private void handleEmailCheckFailure(Exception e) {
@@ -586,6 +587,7 @@ public class rakazRegister extends AppCompatActivity {
         rakazData.put("firstName", firstName);
         rakazData.put("lastName", lastName);
         rakazData.put("email", email);
+        rakazData.put("id", idInput.getText().toString().trim());
         rakazData.put("password", password);
         rakazData.put("megama", megama);
         

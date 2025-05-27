@@ -49,6 +49,7 @@ public class MegamaPreview extends AppCompatActivity {
     private String schoolId;
     private String username;
     private String megamaName;
+    private String megamaDocId; // The document ID for the megama (can be the megama name or rakaz username)
     private List<String> imageUrls = new ArrayList<>();
     private int currentImagePosition = 0;
 
@@ -74,9 +75,23 @@ public class MegamaPreview extends AppCompatActivity {
         if (extras != null) {
             schoolId = extras.getString("schoolId", "");
             username = extras.getString("username", "");
+            megamaName = extras.getString("megamaName", "");
+            megamaDocId = extras.getString("megamaDocId", "");
+            
+            // For backward compatibility
+            if (megamaDocId == null || megamaDocId.isEmpty()) {
+                megamaDocId = megamaName; // Default to megama name if not specified
+            }
+            
+            Log.d(TAG, "Got from intent - megamaName: " + megamaName + ", megamaDocId: " + megamaDocId);
 
-            // Load megama data
-            loadMegamaData();
+            // If we have the document ID directly, load the megama details
+            if (megamaDocId != null && !megamaDocId.isEmpty()) {
+                loadMegamaDetailsDirect();
+            } else {
+                // Otherwise, load via rakaz document first
+                loadMegamaData();
+            }
         } else {
             Toast.makeText(this, "שגיאה בטעינת נתונים", Toast.LENGTH_SHORT).show();
             finish();
@@ -170,14 +185,71 @@ public class MegamaPreview extends AppCompatActivity {
               });
     }
 
-    private void loadMegamaDetails() {
+    private void loadMegamaDetailsDirect() {
+        // Set rakaz greeting if username is available
+        if (username != null && !username.isEmpty()) {
+            fireDB.collection("schools").document(schoolId)
+                  .collection("rakazim").document(username)
+                  .get()
+                  .addOnSuccessListener(documentSnapshot -> {
+                      if (documentSnapshot.exists()) {
+                          String firstName = documentSnapshot.getString("firstName");
+                          if (firstName != null && !firstName.isEmpty()) {
+                              greetingText.setText("שלום " + firstName);
+                          } else {
+                              greetingText.setText("שלום " + username);
+                          }
+                      } else {
+                          greetingText.setText("שלום");
+                      }
+                  })
+                  .addOnFailureListener(e -> {
+                      Log.e(TAG, "Error loading rakaz details for greeting: " + e.getMessage());
+                      greetingText.setText("שלום");
+                  });
+        } else {
+            greetingText.setText("שלום");
+        }
+        
+        // Now load the megama details using megamaDocId
+        Log.d(TAG, "Loading megama with document ID: " + megamaDocId);
         fireDB.collection("schools").document(schoolId)
-              .collection("megamot").document(megamaName)
+              .collection("megamot").document(megamaDocId)
+              .get()
+              .addOnSuccessListener(documentSnapshot -> {
+                  if (documentSnapshot.exists()) {
+                      // If megamaName is not set yet, get it from the document
+                      if (megamaName == null || megamaName.isEmpty()) {
+                          megamaName = documentSnapshot.getString("name");
+                      }
+                      displayMegamaDetails(documentSnapshot);
+                  } else {
+                      Log.e(TAG, "Megama document does not exist: " + megamaDocId);
+                      Toast.makeText(this, "לא נמצאו פרטי מגמה", Toast.LENGTH_SHORT).show();
+                      finish();
+                  }
+              })
+              .addOnFailureListener(e -> {
+                  Log.e(TAG, "Error loading megama details: " + e.getMessage());
+                  Toast.makeText(this, "שגיאה בטעינת פרטי מגמה", Toast.LENGTH_SHORT).show();
+                  finish();
+              });
+    }
+
+    private void loadMegamaDetails() {
+        // Now megamaName has been loaded from the rakaz document,
+        // use it as the document ID for backward compatibility
+        megamaDocId = megamaName;
+        Log.d(TAG, "Loading megama with name as document ID: " + megamaDocId);
+        
+        fireDB.collection("schools").document(schoolId)
+              .collection("megamot").document(megamaDocId)
               .get()
               .addOnSuccessListener(documentSnapshot -> {
                   if (documentSnapshot.exists()) {
                       displayMegamaDetails(documentSnapshot);
                   } else {
+                      Log.e(TAG, "Megama document does not exist with megamaName: " + megamaDocId);
                       Toast.makeText(this, "לא נמצאו פרטי מגמה", Toast.LENGTH_SHORT).show();
                       finish();
                   }

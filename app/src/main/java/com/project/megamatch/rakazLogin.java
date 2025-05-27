@@ -36,7 +36,7 @@ import java.util.Set;
 public class rakazLogin extends AppCompatActivity {
 
     private AutoCompleteTextView schoolAutocomplete;
-    private EditText usernameInput, passwordInput;
+    private EditText idInput, passwordInput;
     private Button rakazLoginButton;
     private Button noAccountButton;
     private FirebaseFirestore fireDB;
@@ -65,7 +65,7 @@ public class rakazLogin extends AppCompatActivity {
         Log.d("SchoolDB", "Total schools loaded: " + schoolsDB.getTotalSchoolsCount());
 
         schoolAutocomplete = findViewById(R.id.schoolAutocomplete);
-        usernameInput = findViewById(R.id.usernameInput);
+        idInput = findViewById(R.id.idInput);
         passwordInput = findViewById(R.id.passwordInput);
         rakazLoginButton = findViewById(R.id.rakazLoginButton);
         noAccountButton = findViewById(R.id.noAccountButton);
@@ -462,26 +462,31 @@ public class rakazLogin extends AppCompatActivity {
         }
         
         String password = passwordInput.getText().toString().trim();
-        String username = usernameInput.getText().toString().trim();
+        String id = idInput.getText().toString().trim();
 
-        if (selectedSchool != null && !password.isEmpty() && !username.isEmpty()) {
+        if (selectedSchool != null && !password.isEmpty() && !id.isEmpty()) {
             // Show loading state
             rakazLoginButton.setEnabled(false);
             rakazLoginButton.setText("מתחבר...");
             
             String schoolId = String.valueOf(selectedSchool.getSchoolId());
-            Log.d(TAG, "Attempting login for rakaz: " + username + " at school: " + schoolId);
+            Log.d(TAG, "Attempting login for rakaz with ID: " + id + " at school: " + schoolId);
             
             // Try cache first for better performance, then verify with server if needed
             fireDB.collection("schools").document(schoolId)
-                    .collection("rakazim").document(username)
-                    .get()  // Default will try cache first, then server if needed
-                    .addOnSuccessListener(documentSnapshot -> {
+                    .collection("rakazim")
+                    .whereEqualTo("id", id)
+                    .get()
+                    .addOnSuccessListener(querySnapshot -> {
                         rakazLoginButton.setEnabled(true);
                         rakazLoginButton.setText("התחברות");
                         
-                        if (documentSnapshot.exists()) {
-                            Log.d(TAG, "Rakaz document found");
+                        if (!querySnapshot.isEmpty()) {
+                            // We found a rakaz with this ID
+                            com.google.firebase.firestore.DocumentSnapshot documentSnapshot = querySnapshot.getDocuments().get(0);
+                            String username = documentSnapshot.getId(); // Get the username from the document ID
+                            Log.d(TAG, "Rakaz document found with username: " + username);
+                            
                             String storedPassword = documentSnapshot.getString("password");
                             if (storedPassword != null && storedPassword.equals(password)) {
                                 Log.d(TAG, "Login successful");
@@ -499,9 +504,8 @@ public class rakazLogin extends AppCompatActivity {
                                 Toast.makeText(rakazLogin.this, "סיסמה שגויה", Toast.LENGTH_SHORT).show();
                             }
                         } else {
-                            Log.d(TAG, "Rakaz document not found");
-                            // Check if the rakaz exists by querying the collection
-                            checkRakazExistence(schoolId, username, password);
+                            Log.d(TAG, "Rakaz with ID " + id + " not found");
+                            Toast.makeText(rakazLogin.this, "רכז עם תעודת זהות זו לא נמצא", Toast.LENGTH_SHORT).show();
                         }
                     })
                     .addOnFailureListener(e -> {
@@ -510,13 +514,13 @@ public class rakazLogin extends AppCompatActivity {
                         
                         Log.e(TAG, "Firestore error: " + e.getMessage(), e);
                         
-                        // Check for network connectivity issues
+                                                    // Check for network connectivity issues
                         if (e.getMessage() != null && 
                             (e.getMessage().contains("network") || e.getMessage().contains("offline") || 
                              e.getMessage().contains("unavailable"))) {
                             Toast.makeText(rakazLogin.this, "בעיית תקשורת. בדוק את החיבור לאינטרנט", Toast.LENGTH_LONG).show();
                             // Try to use cache as a last resort even with network issues
-                            fallbackToCacheQuery(schoolId, username, password);
+                            fallbackToCacheQuery(schoolId, id, password);
                         } else {
                             Toast.makeText(rakazLogin.this, "שגיאה בגישה לנתונים", Toast.LENGTH_SHORT).show();
                         }
@@ -528,45 +532,21 @@ public class rakazLogin extends AppCompatActivity {
         }
     }
     
-    private void checkRakazExistence(String schoolId, String username, String password) {
-        // Try querying the entire rakazim collection to see if the user exists
-        fireDB.collection("schools").document(schoolId)
-                .collection("rakazim")
-                .whereEqualTo("username", username)
-                .get()
-                .addOnSuccessListener(querySnapshot -> {
-                    if (!querySnapshot.isEmpty()) {
-                        // Rakaz found through query, verify password
-                        Log.d(TAG, "Rakaz found through collection query");
-                        for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot) {
-                            String storedPassword = doc.getString("password");
-                            if (storedPassword != null && storedPassword.equals(password)) {
-                                Log.d(TAG, "Password match through collection query");
-                                saveRakazSession(schoolId, username);
-                                goToNextScreen();
-                                return;
-                            }
-                        }
-                        Toast.makeText(rakazLogin.this, "סיסמה שגויה", Toast.LENGTH_SHORT).show();
-                    } else {
-                        Toast.makeText(rakazLogin.this, "רכז לא נמצא במערכת", Toast.LENGTH_SHORT).show();
-                    }
-                })
-                .addOnFailureListener(e -> {
-                    Log.e(TAG, "Error checking rakaz existence: " + e.getMessage(), e);
-                    Toast.makeText(rakazLogin.this, "שגיאה בגישה לנתונים", Toast.LENGTH_SHORT).show();
-                });
-    }
+
     
-    private void fallbackToCacheQuery(String schoolId, String username, String password) {
+    private void fallbackToCacheQuery(String schoolId, String id, String password) {
         Log.d(TAG, "Attempting fallback to cache query");
         // Try using cache as a last resort
         fireDB.collection("schools").document(schoolId)
-                .collection("rakazim").document(username)
+                .collection("rakazim")
+                .whereEqualTo("id", id)
                 .get(com.google.firebase.firestore.Source.CACHE)
-                .addOnSuccessListener(documentSnapshot -> {
-                    if (documentSnapshot.exists()) {
-                        Log.d(TAG, "Rakaz found in cache");
+                .addOnSuccessListener(querySnapshot -> {
+                    if (!querySnapshot.isEmpty()) {
+                        com.google.firebase.firestore.DocumentSnapshot documentSnapshot = querySnapshot.getDocuments().get(0);
+                        String username = documentSnapshot.getId(); // Get the username from the document ID
+                        Log.d(TAG, "Rakaz found in cache with username: " + username);
+                        
                         String storedPassword = documentSnapshot.getString("password");
                         if (storedPassword != null && storedPassword.equals(password)) {
                             Log.d(TAG, "Password match from cache");
@@ -576,7 +556,7 @@ public class rakazLogin extends AppCompatActivity {
                             Toast.makeText(rakazLogin.this, "סיסמה שגויה", Toast.LENGTH_SHORT).show();
                         }
                     } else {
-                        Toast.makeText(rakazLogin.this, "רכז לא נמצא במערכת", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(rakazLogin.this, "רכז עם תעודת זהות זו לא נמצא", Toast.LENGTH_SHORT).show();
                     }
                 })
                 .addOnFailureListener(e -> {
