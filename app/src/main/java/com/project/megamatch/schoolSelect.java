@@ -429,8 +429,8 @@ public class schoolSelect extends AppCompatActivity implements SchoolAdapter.OnS
             for (schoolsDB.School school : firebaseSchools) {
                 if (school.getSchoolName().toLowerCase(Locale.getDefault()).contains(lowerCaseQuery) ||
                     String.valueOf(school.getSchoolId()).contains(lowerCaseQuery) ||
-                    (school.getPrincipalName() != null && 
-                     school.getPrincipalName().toLowerCase(Locale.getDefault()).contains(lowerCaseQuery))) {
+                    (school.getTown() != null &&
+                    school.getTown().toLowerCase(Locale.getDefault()).contains(lowerCaseQuery))) {
                                     filteredSchools.add(school);
                                 }
                             }

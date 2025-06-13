@@ -66,12 +66,12 @@ public class SchoolAdapter extends RecyclerView.Adapter<SchoolAdapter.SchoolView
         public void bind(final schoolsDB.School school, final OnSchoolClickListener listener) {
             textViewSchoolName.setText(school.getSchoolName());
             
-            // For the original schoolsDB.School, we only have school ID and principal info
+            // For the original schoolsDB.School, we only have school ID and town info
             StringBuilder details = new StringBuilder();
             details.append("סמל מוסד: ").append(school.getSchoolId());
             
-            if (school.getPrincipalName() != null && !school.getPrincipalName().isEmpty()) {
-                details.append(" | מנהל/ת: ").append(school.getPrincipalName());
+            if (school.getTown() != null && !school.getTown().isEmpty()) {
+                details.append(" | יישוב: ").append(school.getTown());
             }
             
             textViewSchoolDetails.setText(details.toString());

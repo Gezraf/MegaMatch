@@ -69,8 +69,8 @@
                     android:id="@+id/schoolIdEditText"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:hint="סמל מוסד"
-                    android:inputType="number"
+                    android:hint="סמל מוסד או שם בית ספר"
+                    android:inputType="text"
                     android:textColor="@color/white"
                     android:textAlignment="center"
                     android:maxLines="1" />
@@ -116,14 +116,14 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="מנהל/ת"
+                        android:text="יישוב"
                         android:textSize="14sp"
                         android:textColor="#AAAAAA"
                         android:gravity="center"
                         android:layout_marginTop="8dp"/>
 
                     <TextView
-                        android:id="@+id/principalNameTextView"
+                        android:id="@+id/townTextView"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text=""

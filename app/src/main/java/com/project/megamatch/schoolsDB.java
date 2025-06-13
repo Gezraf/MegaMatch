@@ -44,9 +44,9 @@ public class schoolsDB {
                 try {
                     int schoolId = Integer.parseInt(schoolIdStr);
                     String schoolName = columns[1].trim();
-                    String principalName = columns[2].trim();
+                    String managerName = columns[2].trim();
 
-                    schoolsMap.put(schoolId, new School(schoolName, principalName));
+                    schoolsMap.put(schoolId, new School(schoolName, managerName));
 
                 } catch (NumberFormatException ignored) {}
             }
@@ -109,7 +109,7 @@ public class schoolsDB {
         for (Map.Entry<Integer, School> entry : schoolsMap.entrySet()) {
             School school = entry.getValue();
             // Create a school with ID
-            School schoolWithId = new School(school.getSchoolName(), school.getPrincipalName());
+            School schoolWithId = new School(school.getSchoolName(), school.getManagerName());
             schoolWithId.setSchoolId(entry.getKey());
             schoolsList.add(schoolWithId);
         }
@@ -119,20 +119,20 @@ public class schoolsDB {
     // Inner class representing a school
     public static class School {
         private final String schoolName;
-        private final String principalName;
+        private final String managerName;
         private int schoolId;
 
-        public School(String schoolName, String principalName) {
+        public School(String schoolName, String managerName) {
             this.schoolName = schoolName;
-            this.principalName = principalName;
+            this.managerName = managerName;
         }
 
         public String getSchoolName() {
             return schoolName;
         }
 
-        public String getPrincipalName() {
-            return principalName;
+        public String getManagerName() {
+            return managerName;
         }
         
         public void setSchoolId(int schoolId) {

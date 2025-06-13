@@ -1,12 +1,17 @@
 package com.project.megamatch;
 
+import android.app.Dialog;
+import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.Log;
 import android.view.View;
+import android.view.ViewGroup;
+import android.view.Window;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -17,6 +22,7 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
+import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.CollectionReference;
@@ -35,7 +41,7 @@ public class addSchool extends AppCompatActivity {
     private EditText schoolIdEditText;
     private TextView schoolInfoTextView;
     private TextView schoolNameTextView;
-    private TextView principalNameTextView;
+    private TextView townTextView;
     private MaterialCardView schoolNameCard;
     private Button addButton;
     private ProgressBar progressBar;
@@ -65,7 +71,7 @@ public class addSchool extends AppCompatActivity {
         schoolIdEditText = findViewById(R.id.schoolIdEditText);
         schoolInfoTextView = findViewById(R.id.schoolInfoTextView);
         schoolNameTextView = findViewById(R.id.schoolNameTextView);
-        principalNameTextView = findViewById(R.id.principalNameTextView);
+        townTextView = findViewById(R.id.townTextView);
         schoolNameCard = findViewById(R.id.schoolNameCard);
         addButton = findViewById(R.id.addButton);
         progressBar = findViewById(R.id.progressBar);
@@ -91,87 +97,89 @@ public class addSchool extends AppCompatActivity {
         addButton.setOnClickListener(v -> addSchoolToFirestore());
     }
 
-    private void updateSchoolInfo(String schoolIdStr) {
+    private void updateSchoolInfo(String input) {
         // Hide the card by default
         schoolNameCard.setVisibility(View.GONE);
         
         // Show instruction text when field is empty
-        if (schoolIdStr.isEmpty()) {
-            schoolInfoTextView.setText("מידע אודות בית הספר יתמלא אוטומטית לפי סמל המוסד");
+        if (input.isEmpty()) {
+            schoolInfoTextView.setText("מידע אודות בית הספר יתמלא אוטומטית לפי סמל המוסד או שם בית הספר");
             schoolInfoTextView.setVisibility(View.VISIBLE);
             return;
         }
         
-        // Check if it's exactly 6 digits
-        if (schoolIdStr.length() == 6 && schoolIdStr.matches("\\d+")) {
+        // Try to find school by ID first
+        if (input.matches("\\d+")) {
             try {
-                int schoolId = Integer.parseInt(schoolIdStr);
+                int schoolId = Integer.parseInt(input);
                 schoolsDB.School foundSchool = findSchoolById(schoolId);
                 
                 if (foundSchool != null) {
                     // Valid school found - show the card
                     schoolNameTextView.setText(foundSchool.getSchoolName());
-                    principalNameTextView.setText(foundSchool.getPrincipalName());
+                    townTextView.setText(foundSchool.getTown());
                     schoolNameCard.setVisibility(View.VISIBLE);
                     
                     // Hide the info text when we show the card
                     schoolInfoTextView.setVisibility(View.GONE);
-                } else {
-                    // School ID is valid format but not found
-                    schoolInfoTextView.setText("לא נמצא בית ספר עם סמל מוסד זה");
-                    schoolInfoTextView.setVisibility(View.VISIBLE);
+                    return;
                 }
             } catch (NumberFormatException e) {
-                // Should not happen since we already checked if it's a number
-                schoolInfoTextView.setText("סמל מוסד חייב להיות מספר");
-                schoolInfoTextView.setVisibility(View.VISIBLE);
+                // Not a valid number, continue to search by name
             }
-        } else if (schoolIdStr.length() > 6) {
-            // Too many digits
-            schoolInfoTextView.setText("סמל מוסד חייב להיות באורך 6 ספרות בדיוק");
-            schoolInfoTextView.setVisibility(View.VISIBLE);
+        }
+        
+        // If not found by ID or not a number, search by name
+        schoolsDB.School foundSchool = findSchoolByName(input);
+        if (foundSchool != null) {
+            // Valid school found - show the card
+            schoolNameTextView.setText(foundSchool.getSchoolName());
+            townTextView.setText(foundSchool.getTown());
+            schoolNameCard.setVisibility(View.VISIBLE);
+            
+            // Hide the info text when we show the card
+            schoolInfoTextView.setVisibility(View.GONE);
         } else {
-            // Still typing, show a hint
-            schoolInfoTextView.setText("המשך להקליד את סמל המוסד (6 ספרות)");
+            // School not found
+            schoolInfoTextView.setText("לא נמצא בית ספר עם סמל מוסד או שם זה");
             schoolInfoTextView.setVisibility(View.VISIBLE);
         }
     }
 
     private void addSchoolToFirestore() {
-        String schoolIdStr = schoolIdEditText.getText().toString().trim();
+        String input = schoolIdEditText.getText().toString().trim();
 
         // Validate input
-        if (schoolIdStr.isEmpty()) {
-            Toast.makeText(this, "נא להזין סמל מוסד", Toast.LENGTH_SHORT).show();
+        if (input.isEmpty()) {
+            Toast.makeText(this, "נא להזין סמל מוסד או שם בית ספר", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        // Validate school ID is exactly 6 digits
-        if (schoolIdStr.length() != 6 || !schoolIdStr.matches("\\d+")) {
-            Toast.makeText(this, "סמל מוסד חייב להיות באורך 6 ספרות בדיוק", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        // Convert to integer
-        int schoolId;
-        try {
-            schoolId = Integer.parseInt(schoolIdStr);
+        // Try to find school by ID first
+        schoolsDB.School foundSchool = null;
+        if (input.matches("\\d+")) {
+            try {
+                int schoolId = Integer.parseInt(input);
+                foundSchool = findSchoolById(schoolId);
         } catch (NumberFormatException e) {
-            Toast.makeText(this, "סמל מוסד חייב להיות מספר", Toast.LENGTH_SHORT).show();
-            return;
+                // Not a valid number, continue to search by name
+            }
         }
 
-        // Find school in database
-        schoolsDB.School foundSchool = findSchoolById(schoolId);
+        // If not found by ID, search by name
         if (foundSchool == null) {
-            Toast.makeText(this, "לא נמצא בית ספר עם סמל מוסד זה", Toast.LENGTH_SHORT).show();
+            foundSchool = findSchoolByName(input);
+        }
+
+        if (foundSchool == null) {
+            Toast.makeText(this, "לא נמצא בית ספר עם סמל מוסד או שם זה", Toast.LENGTH_SHORT).show();
             return;
         }
 
         // Extract school info
         String schoolName = foundSchool.getSchoolName();
         String schoolSymbol = String.valueOf(foundSchool.getSchoolId());
-        String schoolManager = foundSchool.getPrincipalName();
+        String schoolTown = foundSchool.getTown();
 
         // Show progress
         progressBar.setVisibility(View.VISIBLE);
@@ -190,7 +198,7 @@ public class addSchool extends AppCompatActivity {
                     // Create the school document
                     Map<String, Object> schoolData = new HashMap<>();
                     schoolData.put("name", schoolName);
-                    schoolData.put("manager", schoolManager);
+                    schoolData.put("town", schoolTown);
                     
                     // Format current date as DD:MM:YYYY
                     SimpleDateFormat dateFormat = new SimpleDateFormat("dd:MM:yyyy", Locale.getDefault());
@@ -203,10 +211,11 @@ public class addSchool extends AppCompatActivity {
                             // Create all required subcollections
                             createAllSubcollections(schoolSymbol);
 
-                            Toast.makeText(addSchool.this, "בית הספר " + schoolName + " נוסף בהצלחה", Toast.LENGTH_SHORT).show();
+                            // Show success dialog instead of Toast
+                            showSuccessDialog("בית הספר " + schoolName + " נוסף בהצלחה!");
                             schoolIdEditText.setText("");
                             schoolNameCard.setVisibility(View.GONE);
-                            schoolInfoTextView.setText("מידע אודות בית הספר יתמלא אוטומטית לפי סמל המוסד");
+                            schoolInfoTextView.setText("מידע אודות בית הספר יתמלא אוטומטית לפי סמל המוסד או שם בית הספר");
                             schoolInfoTextView.setVisibility(View.VISIBLE);
                             progressBar.setVisibility(View.GONE);
                             addButton.setEnabled(true);
@@ -223,6 +232,16 @@ public class addSchool extends AppCompatActivity {
     private schoolsDB.School findSchoolById(int schoolId) {
         for (schoolsDB.School school : allSchools) {
             if (school.getSchoolId() == schoolId) {
+                return school;
+            }
+        }
+        return null;
+    }
+
+    private schoolsDB.School findSchoolByName(String name) {
+        String searchName = name.trim().toLowerCase();
+        for (schoolsDB.School school : allSchools) {
+            if (school.getSchoolName().toLowerCase().contains(searchName)) {
                 return school;
             }
         }
@@ -282,6 +301,60 @@ public class addSchool extends AppCompatActivity {
                     Toast.makeText(addSchool.this, "שגיאה ביצירת " + collectionName + ": " + e.getMessage(), Toast.LENGTH_SHORT).show();
                 });
         }
+    }
+
+    /**
+     * Show a custom styled success dialog
+     * @param message The success message to display
+     */
+    private void showSuccessDialog(String message) {
+        // Create a dialog
+        Dialog customDialog = new Dialog(this);
+        customDialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        customDialog.setCancelable(false);
+        
+        // Set the custom layout
+        customDialog.setContentView(R.layout.success_dialog);
+        
+        // Get window to set layout parameters
+        Window window = customDialog.getWindow();
+        if (window != null) {
+            window.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            window.setBackgroundDrawable(new ColorDrawable(android.graphics.Color.TRANSPARENT));
+            
+            // Add custom animation
+            window.setWindowAnimations(R.style.DialogAnimation);
+        }
+        
+        // Set the success message
+        TextView messageView = customDialog.findViewById(R.id.dialogMessage);
+        if (messageView != null) {
+            messageView.setText(message);
+        }
+        
+        // Set the title
+        TextView titleView = customDialog.findViewById(R.id.dialogTitle);
+        if (titleView != null) {
+            titleView.setText("הוספת בית ספר");
+        }
+        
+        // Set the success icon
+        ImageView iconView = customDialog.findViewById(R.id.successIcon);
+        if (iconView != null) {
+            // Use checkmark icon
+            iconView.setImageResource(R.drawable.ic_checkmark);
+        }
+        
+        // Set up the close button
+        MaterialButton closeButton = customDialog.findViewById(R.id.closeButton);
+        if (closeButton != null) {
+            closeButton.setOnClickListener(v -> {
+                customDialog.dismiss();
+            });
+        }
+        
+        // Show the dialog
+        customDialog.show();
     }
 
     public void goBack(View view) {

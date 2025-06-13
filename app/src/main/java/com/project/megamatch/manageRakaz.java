@@ -154,7 +154,7 @@ public class manageRakaz extends AppCompatActivity {
                     for (QueryDocumentSnapshot document : snapshot) {
                         String email = document.getId();
                         if (!email.equals("_init") && !email.equals("_dummy")) {
-                            allowedEmails.add(email);
+                        allowedEmails.add(email);
                         }
                     }
                     
@@ -225,29 +225,29 @@ public class manageRakaz extends AppCompatActivity {
                             // Use the name from allowedRakazEmails if available
                             String displayName = detailedFullName != null ? detailedFullName : 
                                 (finalFullName != null ? finalFullName : "שם לא ידוע");
-                            
-                            // Check if this rakaz has created a megama
+                        
+                        // Check if this rakaz has created a megama
                             checkMegamaDetailsAndExistence(finalUsername, (hasMegama, megamaName) -> {
                                 // Create rakaz item with complete info
-                                RakazItem rakazItem = new RakazItem(
+                            RakazItem rakazItem = new RakazItem(
                                     finalUsername,
                                     displayName,
-                                    email != null ? email : "אימייל לא ידוע",
+                                email != null ? email : "אימייל לא ידוע",
                                     hasMegama,
                                     isRegistered,
                                     megamaName,
                                     assignedMegama
-                                );
-                                
-                                // Add to list and update UI
-                                rakazList.add(rakazItem);
-                                rakazAdapter.notifyDataSetChanged();
-                                
+                            );
+                            
+                            // Add to list and update UI
+                            rakazList.add(rakazItem);
+                            rakazAdapter.notifyDataSetChanged();
+                            
                                 // Remove from allowed emails to track unregistered
-                                if (email != null) {
-                                    allowedEmails.remove(email);
-                                }
-                                
+                            if (email != null) {
+                                allowedEmails.remove(email);
+                            }
+                            
                                 // Track completion and handle unregistered rakazim
                                 rakazDocCount[0]++;
                                 if (rakazDocCount[0] >= totalDocCount) {
@@ -283,32 +283,32 @@ public class manageRakaz extends AppCompatActivity {
         for (String email : allowedEmails) {
             fetchRakazDetailsFromAllowedEmails(email, "", (detailedFullName, registeredUsername, assignedMegama) -> {
                 String displayName = detailedFullName != null ? detailedFullName : "רכז לא רשום";
-                
-                RakazItem rakazItem = new RakazItem(
+            
+            RakazItem rakazItem = new RakazItem(
                     "",  // No username for unregistered
                     displayName,
-                    email,
+                email,
                     false,  // No megama for unregistered
                     false,  // Not registered
                     null,   // No megama name
                     assignedMegama  // Assigned megama
-                );
-                
+            );
+            
                 // Add to list and update UI
-                rakazList.add(rakazItem);
+            rakazList.add(rakazItem);
                 rakazAdapter.notifyDataSetChanged();
-                
+        
                 // Track completion
                 processedCount[0]++;
                 if (processedCount[0] >= totalCount) {
-                    runOnUiThread(() -> {
-                        showLoading(false);
-                        if (rakazList.isEmpty()) {
-                            showEmptyState(true);
-                        } else {
-                            showEmptyState(false);
-                        }
-                    });
+        runOnUiThread(() -> {
+            showLoading(false);
+            if (rakazList.isEmpty()) {
+                showEmptyState(true);
+            } else {
+                showEmptyState(false);
+            }
+        });
                 }
             });
         }
@@ -462,7 +462,7 @@ public class manageRakaz extends AppCompatActivity {
                 String emailText = "שם משתמש: " + rakazItem.getUsername() + "\n" + rakazItem.getEmail();
                 holder.emailTextView.setText(emailText);
             } else {
-                holder.emailTextView.setText(rakazItem.getEmail());
+            holder.emailTextView.setText(rakazItem.getEmail());
             }
             
             // Set megama status
@@ -524,13 +524,13 @@ public class manageRakaz extends AppCompatActivity {
                                                 // Megama exists with username as document ID (old way)
                                                 Log.d(TAG, "Found megama document with username: " + rakazItem.getUsername());
                                                 Intent intent = new Intent(manageRakaz.this, MegamaPreview.class);
-                                                intent.putExtra("schoolId", schoolId);
-                                                intent.putExtra("rakazUsername", rakazItem.getUsername());
+                    intent.putExtra("schoolId", schoolId);
+                    intent.putExtra("rakazUsername", rakazItem.getUsername());
                                                 intent.putExtra("isManager", true);
                                                 intent.putExtra("megamaName", megamaName);
                                                 intent.putExtra("megamaDocId", rakazItem.getUsername()); // Old style
-                                                startActivity(intent);
-                                            } else {
+                    startActivity(intent);
+                } else {
                                                 // Megama doesn't exist at all
                                                 Log.e(TAG, "Megama not found with either name or username as document ID");
                                                 Toast.makeText(manageRakaz.this, "רכז טרם יצר את מגמת " + megamaName, Toast.LENGTH_SHORT).show();
@@ -648,7 +648,7 @@ public class manageRakaz extends AppCompatActivity {
                     // Set click listener for actual delete
                     deleteButton.setOnClickListener(v -> {
                         dialog.dismiss();
-                        deleteAllowedRakazEmail(rakazItem.getEmail());
+            deleteAllowedRakazEmail(rakazItem.getEmail());
                     });
                 }
             }.start();
@@ -696,7 +696,7 @@ public class manageRakaz extends AppCompatActivity {
                     // Set click listener for actual delete
                     deleteButton.setOnClickListener(v -> {
                         dialog.dismiss();
-                        deleteRegisteredRakaz(rakazItem);
+            deleteRegisteredRakaz(rakazItem);
                     });
                 }
             }.start();
@@ -766,7 +766,7 @@ public class manageRakaz extends AppCompatActivity {
                         });
                 } else {
                     // If no email to delete, check if megama needs deletion
-                    if (rakazItem.hasMegama()) {
+                if (rakazItem.hasMegama()) {
                         deleteMegamaByUsername(rakazItem);
                     } else {
                         Toast.makeText(manageRakaz.this, "הרכז הוסר בהצלחה", Toast.LENGTH_SHORT).show();

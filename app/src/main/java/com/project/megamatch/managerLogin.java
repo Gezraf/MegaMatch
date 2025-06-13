@@ -342,16 +342,20 @@ public class managerLogin extends AppCompatActivity {
                     
                     List<schoolsDB.School> filtered = new ArrayList<>();
                     
-                    // Filter by school name, ID, or principal name
+                    // Filter by school name, ID, or town
                     for (schoolsDB.School school : originalList) {
                         String schoolName = school.getSchoolName().toLowerCase();
                         String schoolId = String.valueOf(school.getSchoolId());
-                        String principalName = school.getPrincipalName() != null ? 
-                                               school.getPrincipalName().toLowerCase() : "";
-                                               
+                        String town = school.getTown() != null ? 
+                            school.getTown() : "";
+                        
+                        // Create a formatted string for display
+                        String displayText = String.format("%s\nסמל מוסד: %d\nיישוב: %s",
+                            schoolName, school.getSchoolId(), town);
+                        
                         if (schoolName.contains(filterSeq) || 
                             schoolId.contains(filterSeq) || 
-                            principalName.contains(filterSeq)) {
+                            displayText.contains(filterSeq)) {
                             filtered.add(school);
                         }
                     }
