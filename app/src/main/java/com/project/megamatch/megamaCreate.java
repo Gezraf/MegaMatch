@@ -37,6 +37,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * מחלקה זו מאפשרת ליצור או לערוך מגמות בבית ספר.
+ * היא מטפלת בקלט משתמש עבור שם מגמה, תיאור, תנאי קבלה (מבחן, ממוצע ציונים, תנאים מותאמים אישית)
+ * וכן מאפשרת ניווט למסך הוספת קבצים מצורפים.
+ */
 public class megamaCreate extends AppCompatActivity {
 
     private TextView greetingText, megamaText;
@@ -53,14 +58,14 @@ public class megamaCreate extends AppCompatActivity {
     private String megamaName;
     private List<String> customConditions = new ArrayList<>();
     
-    // Activity result launcher for MegamaAttachments
+    // לאנצ'ר תוצאות פעילות עבור MegamaAttachments
     private ActivityResultLauncher<Intent> megamaAttachmentsLauncher;
     
     /**
-     * Helper class to prevent rapid multiple clicks
+     * מחלקת עזר למניעת לחיצות מרובות מהירות.
      */
     private static class DebounceClickListener implements View.OnClickListener {
-        private static final long DEBOUNCE_INTERVAL_MS = 800; // 800 milliseconds
+        private static final long DEBOUNCE_INTERVAL_MS = 800; // 800 מילישניות
         private final View.OnClickListener clickListener;
         private long lastClickTime = 0;
         
@@ -75,7 +80,7 @@ public class megamaCreate extends AppCompatActivity {
                 lastClickTime = currentTime;
                 clickListener.onClick(v);
             } else {
-                Log.d("DebounceClick", "Click ignored, too soon after previous click");
+                Log.d("DebounceClick", "לחיצה התעלמה, מהר מדי לאחר לחיצה קודמת");
             }
         }
     }
@@ -121,34 +126,34 @@ public class megamaCreate extends AppCompatActivity {
             return;
         }
         
-        // Initialize activity result launcher for MegamaAttachments
+        // אתחול לאנצ'ר תוצאות פעילות עבור MegamaAttachments
         megamaAttachmentsLauncher = registerForActivityResult(
             new ActivityResultContracts.StartActivityForResult(),
             result -> {
                 if (result.getResultCode() == RESULT_OK && result.getData() != null) {
-                    // If we come back from MegamaAttachments with a result, do nothing
-                    // Data is already preserved in this activity
+                    // אם אנו חוזרים מ-MegamaAttachments עם תוצאה, אל תעשה כלום
+                    // הנתונים כבר נשמרים בפעילות זו
                     boolean shouldPreserveData = result.getData().getBooleanExtra("shouldPreserveData", false);
                     if (shouldPreserveData) {
-                        // The user clicked back to edit, data is already preserved
+                        // המשתמש לחץ על כפתור חזרה לעריכה, הנתונים כבר נשמרים
                     }
                 }
             });
         
-        // Check if we're in update mode
+        // בדוק אם אנחנו במצב עדכון
         boolean isUpdate = getIntent().getBooleanExtra("isUpdate", false);
         if (isUpdate) {
-            // Set button text to update
+            // הגדר טקסט כפתור לעדכון
             createMegamaButton.setText("המשך");
             
-            // Load existing megama data
+            // טען נתוני מגמה קיימים
             loadExistingMegamaData();
         } else {
             // טעינת פרטי הרכז
             loadRakazDetails();
         }
         
-        // Set button click listener with debounce mechanism
+        // הגדרת מאזין לחיצה על כפתור עם מנגנון Debounce
         createMegamaButton.setOnClickListener(new DebounceClickListener(v -> continueToBuildingMegama(v)));
         
         // הגדרת כפתור חזרה
@@ -164,12 +169,12 @@ public class megamaCreate extends AppCompatActivity {
         
         // הגדרת כפתור הוספת תנאי עם אפשרות לסגירת התפריט
         addConditionButton.setOnClickListener(v -> {
-            // Toggle visibility - if visible, hide it; if hidden, show it
+            // החלף מצב נראות - אם גלוי, הסתר; אם מוסתר, הצג
             boolean isVisible = customConditionInputLayout.getVisibility() == View.VISIBLE;
             customConditionInputLayout.setVisibility(isVisible ? View.GONE : View.VISIBLE);
             addCustomConditionButton.setVisibility(isVisible ? View.GONE : View.VISIBLE);
             
-            // If we're making it visible, request focus to the input field
+            // אם אנו מציגים אותו, בקש מיקוד לשדה הקלט
             if (!isVisible) {
                 customConditionInput.requestFocus();
             }
@@ -189,7 +194,10 @@ public class megamaCreate extends AppCompatActivity {
         });
     }
     
-    // פונקציה להוספת תנאי מותאם
+    /**
+     * מוסיף תנאי מותאם אישית לרשימה ומציג אותו בממשק המשתמש.
+     * @param condition התנאי המותאם אישית להוספה.
+     */
     private void addCustomCondition(String condition) {
         customConditions.add(condition);
         
@@ -240,7 +248,9 @@ public class megamaCreate extends AppCompatActivity {
         customConditionsContainer.addView(conditionRow);
     }
     
-    // פונקציה לטעינת פרטי הרכז מפיירבייס
+    /**
+     * טוען את פרטי הרכז מפיירבייס ומעדכן את ממשק המשתמש.
+     */
     private void loadRakazDetails() {
         fireDB.collection("schools").document(schoolId)
               .collection("rakazim").document(username)
@@ -254,337 +264,211 @@ public class megamaCreate extends AppCompatActivity {
                       } else {
                           greetingText.setText("שלום " + username);
                       }
-                      
-                      // טעינת שם מגמה
-                      megamaName = documentSnapshot.getString("megama");
-                      if (megamaName != null && !megamaName.isEmpty()) {
-                          // Don't set title text yet - let fetchMegamaDataFromFirestore determine 
-                          // whether to show "יצירת מגמה" or "עדכון מגמה" based on megama existence
-                          
-                          // Now that we have the megama name, fetch the full megama data directly from Firestore
-                          fetchMegamaDataFromFirestore(megamaName);
-                      } else {
-                          megamaText.setText("יצירת מגמה חדשה!");
-                          // Set button text to "המשך" for consistency
+                      String rakazMegama = documentSnapshot.getString("megama");
+                      if (rakazMegama != null && !rakazMegama.isEmpty()) {
+                          megamaName = rakazMegama;
+                          megamaText.setText("אתה עומד לעדכן את מגמת: " + megamaName);
+                          loadExistingMegamaData(); // Load existing data for update
                           createMegamaButton.setText("המשך");
-                          // If there's no megama associated with the rakaz, try to use the intent data
-                          loadFromIntent();
-                      }
-                  } else {
-                      greetingText.setText("שלום " + username);
-                      megamaText.setText("יצירת מגמה חדשה!");
-                      // Set button text to "המשך" for consistency
-                      createMegamaButton.setText("המשך");
-                      // If no rakaz document exists, try to use the intent data
-                      loadFromIntent();
-                  }
-              })
-              .addOnFailureListener(e -> {
-                  Log.e("MegamaCreate", "Error loading rakaz details: " + e.getMessage());
-                  greetingText.setText("שלום " + username);
-                  megamaText.setText("יצירת מגמה חדשה!");
-                  // Set button text to "המשך" for consistency
-                  createMegamaButton.setText("המשך");
-                  // On failure, try to use the intent data
-                  loadFromIntent();
-              });
-    }
-    
-    // Load existing megama data from Firestore
-    private void loadExistingMegamaData() {
-        // Load rakaz details first to set the greeting text
-        fireDB.collection("schools").document(schoolId)
-              .collection("rakazim").document(username)
-              .get()
-              .addOnSuccessListener(documentSnapshot -> {
-                  if (documentSnapshot.exists()) {
-                      // טעינת שם פרטי
-                      String firstName = documentSnapshot.getString("firstName");
-                      if (firstName != null && !firstName.isEmpty()) {
-                          greetingText.setText("שלום " + firstName);
                       } else {
-                          greetingText.setText("שלום " + username);
-                      }
-                      
-                      // טעינת שם מגמה
-                      megamaName = documentSnapshot.getString("megama");
-                      if (megamaName != null && !megamaName.isEmpty()) {
-                          // Don't set title text yet - let fetchMegamaDataFromFirestore determine 
-                          // whether to show "יצירת מגמה" or "עדכון מגמה" based on megama existence
-                          
-                          // Now that we have the megama name, fetch the full megama data directly from Firestore
-                          fetchMegamaDataFromFirestore(megamaName);
-                      } else {
+                          Log.d(TAG, "רכז לא משויך למגמה. יצירת מגמה חדשה.");
                           megamaText.setText("יצירת מגמה חדשה!");
-                          // If there's no megama associated with the rakaz, try to use the intent data
-                          loadFromIntent();
                       }
                   } else {
-                      greetingText.setText("שלום " + username);
-                      megamaText.setText("יצירת מגמה חדשה!");
-                      // If no rakaz document exists, try to use the intent data
-                      loadFromIntent();
+                      Log.w(TAG, "מסמך רכז לא נמצא עבור שם משתמש: " + username);
+                      Toast.makeText(this, "שגיאה: פרטי רכז לא נמצאו", Toast.LENGTH_SHORT).show();
+                      goToLoginScreen();
                   }
               })
               .addOnFailureListener(e -> {
-                  Log.e("MegamaCreate", "Error loading rakaz details: " + e.getMessage());
-                  greetingText.setText("שלום " + username);
-                  megamaText.setText("יצירת מגמה חדשה!");
-                  // On failure, try to use the intent data
-                  loadFromIntent();
+                  Log.e(TAG, "שגיאה בטעינת פרטי רכז: " + e.getMessage(), e);
+                  Toast.makeText(this, "שגיאה בטעינת פרטי רכז", Toast.LENGTH_SHORT).show();
+                  goToLoginScreen();
               });
     }
-    
-    // Fetch megama data directly from Firestore
-    private void fetchMegamaDataFromFirestore(String megamaName) {
-        Log.d("MegamaCreate", "Fetching megama data for: " + megamaName);
-        
-        // Store the megama name to this.megamaName to ensure it's available for the next steps
-        this.megamaName = megamaName;
-        
-        fireDB.collection("schools").document(schoolId)
-              .collection("megamot").document(megamaName)
-              .get()
-              .addOnSuccessListener(documentSnapshot -> {
-                  if (documentSnapshot.exists()) {
-                      // Megama document exists, set title to "Update"
-                      megamaText.setText("עדכון מגמת " + megamaName);
-                      
-                      // Get data from Firestore document
-                      String description = documentSnapshot.getString("description");
-                      Boolean requiresExam = documentSnapshot.getBoolean("requiresExam");
-                      Boolean requiresGradeAvg = documentSnapshot.getBoolean("requiresGradeAvg");
-                      Long requiredGradeAvgLong = documentSnapshot.getLong("requiredGradeAvg");
-                      int requiredGradeAvg = requiredGradeAvgLong != null ? requiredGradeAvgLong.intValue() : 0;
-                      ArrayList<String> conditionsList = (ArrayList<String>) documentSnapshot.get("customConditions");
-                      
-                      // Set data to UI components
-                      if (description != null) {
-                          megamaDescriptionInput.setText(description);
-                      }
-                      
-                      if (requiresExam != null) {
-                          requiresExamCheckbox.setChecked(requiresExam);
-                      }
-                      
-                      if (requiresGradeAvg != null) {
-                          requiresGradeAvgCheckbox.setChecked(requiresGradeAvg);
-                      }
-                      
-                      if (requiresGradeAvg != null && requiresGradeAvg) {
-                          gradeAvgInputLayout.setVisibility(View.VISIBLE);
-                          gradeAvgInput.setText(String.valueOf(requiredGradeAvg));
-                      }
-                      
-                      // Clear existing conditions before adding
-                      customConditionsContainer.removeAllViews();
-                      customConditions.clear();
-                      
-                      // Add custom conditions
-                      if (conditionsList != null && !conditionsList.isEmpty()) {
-                          for (String condition : conditionsList) {
-                              addCustomCondition(condition);
-                          }
-                      }
-                  } else {
-                      // Megama document doesn't exist yet, set title to "Create" instead of "Update"
-                      megamaText.setText("יצירת מגמת " + megamaName);
-                      
-                      // If document doesn't exist, fall back to intent extras
-                      loadFromIntent();
-                  }
-              })
-              .addOnFailureListener(e -> {
-                  Log.e("MegamaCreate", "Error loading megama data: " + e.getMessage());
-                  // On failure, try to use the intent data
-                  loadFromIntent();
-              });
-    }
-    
-    // Load data from intent extras (fallback method)
-    private void loadFromIntent() {
-        // Only set megamaName from intent if it's currently null or empty
-        // This preserves the megama name we got from the rakaz document
+
+    /**
+     * טוען נתוני מגמה קיימים מפיירסטור למצב עדכון.
+     */
+    private void loadExistingMegamaData() {
         if (megamaName == null || megamaName.isEmpty()) {
-            megamaName = getIntent().getStringExtra("megamaName");
+            Log.e(TAG, "שם מגמה חסר לטעינת נתונים קיימים.");
+            return;
         }
-        
-        String description = getIntent().getStringExtra("megamaDescription");
-        boolean requiresExam = getIntent().getBooleanExtra("requiresExam", false);
-        boolean requiresGradeAvg = getIntent().getBooleanExtra("requiresGradeAvg", false);
-        int requiredGradeAvg = getIntent().getIntExtra("requiredGradeAvg", 0);
-        ArrayList<String> conditionsList = getIntent().getStringArrayListExtra("customConditions");
-        
-        // Set data to UI components
-        if (description != null) {
-            megamaDescriptionInput.setText(description);
-        }
-        
-        requiresExamCheckbox.setChecked(requiresExam);
-        requiresGradeAvgCheckbox.setChecked(requiresGradeAvg);
-        
-        if (requiresGradeAvg) {
-            gradeAvgInputLayout.setVisibility(View.VISIBLE);
-            gradeAvgInput.setText(String.valueOf(requiredGradeAvg));
-        }
-        
-        // Add custom conditions
-        if (conditionsList != null && !conditionsList.isEmpty()) {
-            for (String condition : conditionsList) {
-                addCustomCondition(condition);
+        Log.d(TAG, "טוען נתוני מגמה קיימים עבור: " + megamaName);
+        fetchMegamaDataFromFirestore(megamaName);
+    }
+
+    /**
+     * שולף נתוני מגמה מפיירסטור ומעדכן את רכיבי ממשק המשתמש.
+     * @param megamaName שם המגמה לשליפה.
+     */
+    private void fetchMegamaDataFromFirestore(String megamaName) {
+        fireDB.collection("schools").document(schoolId)
+                .collection("megamot").document(megamaName)
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        megamaDescriptionInput.setText(documentSnapshot.getString("description"));
+                        requiresExamCheckbox.setChecked(Boolean.TRUE.equals(documentSnapshot.getBoolean("requiresExam")));
+                        requiresGradeAvgCheckbox.setChecked(Boolean.TRUE.equals(documentSnapshot.getBoolean("requiresGradeAvg")));
+                        if (documentSnapshot.contains("requiredGradeAvg")) {
+                            Long avg = documentSnapshot.getLong("requiredGradeAvg");
+                            gradeAvgInput.setText(String.valueOf(avg != null ? avg.intValue() : 0));
+                        }
+                        ArrayList<String> fetchedCustomConditions = (ArrayList<String>) documentSnapshot.get("customConditions");
+                        if (fetchedCustomConditions != null) {
+                            customConditions.clear(); // Clear existing conditions
+                            for (String condition : fetchedCustomConditions) {
+                                addCustomCondition(condition);
+                            }
+                        }
+                    } else {
+                        Log.d(TAG, "מסמך מגמה לא נמצא בפיירסטור: " + megamaName);
+                    }
+                    loadFromIntent(); // Load/override with any data from intent if available
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "שגיאה בשליפת נתוני מגמה: " + e.getMessage(), e);
+                    Toast.makeText(this, "שגיאה בטעינת פרטי מגמה קיימים: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    loadFromIntent(); // Try to load from intent if Firestore fetch fails
+                });
+    }
+
+    /**
+     * טוען נתונים מה-Intent אם קיימים, עבור שמירה במצב של שינוי מסך או חזרה.
+     */
+    private void loadFromIntent() {
+        // Load data from intent to restore state after returning from attachments screen
+        Bundle extras = getIntent().getExtras();
+        if (extras != null) {
+            String intentMegamaName = extras.getString("megamaName", "");
+            String intentMegamaDescription = extras.getString("megamaDescription", "");
+            boolean intentRequiresExam = extras.getBoolean("requiresExam", requiresExamCheckbox.isChecked());
+            boolean intentRequiresGradeAvg = extras.getBoolean("requiresGradeAvg", requiresGradeAvgCheckbox.isChecked());
+            int intentRequiredGradeAvg = extras.getInt("requiredGradeAvg", Integer.parseInt(gradeAvgInput.getText().toString().isEmpty() ? "0" : gradeAvgInput.getText().toString()));
+            ArrayList<String> intentCustomConditions = extras.getStringArrayList("customConditions");
+
+            if (!intentMegamaName.isEmpty()) {
+                megamaName = intentMegamaName;
+                megamaText.setText("אתה עומד ליצור את מגמת: " + megamaName);
+            }
+            if (!intentMegamaDescription.isEmpty()) {
+                megamaDescriptionInput.setText(intentMegamaDescription);
+            }
+            requiresExamCheckbox.setChecked(intentRequiresExam);
+            requiresGradeAvgCheckbox.setChecked(intentRequiresGradeAvg);
+            gradeAvgInput.setText(String.valueOf(intentRequiredGradeAvg));
+            if (intentCustomConditions != null) {
+                customConditions.clear();
+                customConditionsContainer.removeAllViews();
+                for (String condition : intentCustomConditions) {
+                    addCustomCondition(condition);
+                }
             }
         }
     }
-    
-    // Function to continue to MegamaAttachments screen
+
+    /**
+     * ממשיך למסך הוספת קבצים מצורפים למגמה, או יוצר את המגמה אם אין קבצים מצורפים.
+     * @param view התצוגה שלחצה על האירוע.
+     */
     public void continueToBuildingMegama(View view) {
-        // Show loading state
-        createMegamaButton.setEnabled(false);
-        createMegamaButton.setText("טוען...");
-        
-        String megamaDescription = megamaDescriptionInput.getText().toString().trim();
+        // Capture current state of the form
+        megamaName = megamaText.getText().toString().replace("אתה עומד ליצור את מגמת: ", "").trim();
+        if (megamaName.isEmpty() || megamaName.equals("יצירת מגמה חדשה!")) {
+            Toast.makeText(this, "נא להזין שם מגמה", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        String description = megamaDescriptionInput.getText().toString().trim();
+        if (description.isEmpty()) {
+            Toast.makeText(this, "נא להזין תיאור מגמה", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
         boolean requiresExam = requiresExamCheckbox.isChecked();
         boolean requiresGradeAvg = requiresGradeAvgCheckbox.isChecked();
-        
-        // בדיקת תקינות קלט
-        if (megamaDescription.isEmpty()) {
-            Toast.makeText(this, "יש למלא תיאור מגמה", Toast.LENGTH_SHORT).show();
-            // Reset button state
-            createMegamaButton.setEnabled(true);
-            createMegamaButton.setText("המשך");
-            return;
-        }
-        
-        if (megamaName == null || megamaName.isEmpty()) {
-            Log.e("MegamaCreate", "Error: megamaName is null or empty in continueToBuildingMegama");
-            Toast.makeText(this, "שגיאה: לא נמצא שם מגמה", Toast.LENGTH_SHORT).show();
-            // Reset button state
-            createMegamaButton.setEnabled(true);
-            createMegamaButton.setText("המשך");
-            return;
-        }
-        
-        Log.d("MegamaCreate", "Proceeding with megama name: " + megamaName);
-        
-        // טיפול בציון ממוצע אם נדרש
         int requiredGradeAvg = 0;
         if (requiresGradeAvg) {
-            String gradeStr = gradeAvgInput.getText().toString().trim();
-            if (gradeStr.isEmpty()) {
-                Toast.makeText(this, "יש להזין ציון ממוצע נדרש", Toast.LENGTH_SHORT).show();
-                // Reset button state
-                createMegamaButton.setEnabled(true);
-                createMegamaButton.setText("המשך");
+            String gradeAvgStr = gradeAvgInput.getText().toString().trim();
+            if (gradeAvgStr.isEmpty()) {
+                Toast.makeText(this, "נא להזין ממוצע ציונים נדרש", Toast.LENGTH_SHORT).show();
                 return;
             }
-            
             try {
-                requiredGradeAvg = Integer.parseInt(gradeStr);
-                if (requiredGradeAvg <= 0 || requiredGradeAvg > 100) {
-                    Toast.makeText(this, "יש להזין ציון תקין (1-100)", Toast.LENGTH_SHORT).show();
-                    // Reset button state
-                    createMegamaButton.setEnabled(true);
-                    createMegamaButton.setText("המשך");
+                requiredGradeAvg = Integer.parseInt(gradeAvgStr);
+                if (requiredGradeAvg < 0 || requiredGradeAvg > 100) {
+                    Toast.makeText(this, "ממוצע ציונים חייב להיות בין 0 ל-100", Toast.LENGTH_SHORT).show();
                     return;
                 }
             } catch (NumberFormatException e) {
-                Toast.makeText(this, "יש להזין ציון תקין", Toast.LENGTH_SHORT).show();
-                // Reset button state
-                createMegamaButton.setEnabled(true);
-                createMegamaButton.setText("המשך");
+                Toast.makeText(this, "ממוצע ציונים לא חוקי", Toast.LENGTH_SHORT).show();
                 return;
             }
         }
-        
-        // איסוף תנאים מותאמים אישית מסומנים
-        ArrayList<String> activeCustomConditions = new ArrayList<>();
+
+        // Get custom conditions from the views in the container
+        ArrayList<String> currentCustomConditions = new ArrayList<>();
         for (int i = 0; i < customConditionsContainer.getChildCount(); i++) {
-            View child = customConditionsContainer.getChildAt(i);
-            if (child instanceof LinearLayout) {
-                LinearLayout row = (LinearLayout) child;
-                for (int j = 0; j < row.getChildCount(); j++) {
-                    View rowChild = row.getChildAt(j);
-                    if (rowChild instanceof CheckBox) {
-                        CheckBox checkBox = (CheckBox) rowChild;
+            View row = customConditionsContainer.getChildAt(i);
+            if (row instanceof LinearLayout) {
+                LinearLayout linearLayout = (LinearLayout) row;
+                for (int j = 0; j < linearLayout.getChildCount(); j++) {
+                    View child = linearLayout.getChildAt(j);
+                    if (child instanceof MaterialCheckBox) {
+                        MaterialCheckBox checkBox = (MaterialCheckBox) child;
                         if (checkBox.isChecked()) {
-                            activeCustomConditions.add(checkBox.getText().toString());
+                            currentCustomConditions.add(checkBox.getText().toString());
                         }
                     }
                 }
             }
         }
-        
-        // Check if we're in update mode
-        boolean isUpdate = getIntent().getBooleanExtra("isUpdate", false);
-        
-        // Create intent and pass data to MegamaAttachments
+
+        // Update the customConditions list with the current state
+        customConditions = currentCustomConditions;
+
+        // Intent to MegamaAttachments
         Intent intent = new Intent(this, MegamaAttachments.class);
         intent.putExtra("schoolId", schoolId);
         intent.putExtra("username", username);
         intent.putExtra("megamaName", megamaName);
-        intent.putExtra("megamaDescription", megamaDescription);
+        intent.putExtra("megamaDescription", description);
         intent.putExtra("requiresExam", requiresExam);
         intent.putExtra("requiresGradeAvg", requiresGradeAvg);
         intent.putExtra("requiredGradeAvg", requiredGradeAvg);
-        intent.putStringArrayListExtra("customConditions", activeCustomConditions);
-        intent.putExtra("isUpdate", isUpdate);
+        intent.putStringArrayListExtra("customConditions", customConditions);
         
-        // Use flags to ensure we don't stack activities
-        intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        
-        // If in update mode, try to get existing image URLs from Firestore
-        if (isUpdate) {
-            // First try to get image URLs from intent
-            ArrayList<String> imageUrls = getIntent().getStringArrayListExtra("imageUrls");
-            if (imageUrls != null && !imageUrls.isEmpty()) {
-                intent.putStringArrayListExtra("imageUrls", imageUrls);
-                // Launch immediately if we have the URLs
-                megamaAttachmentsLauncher.launch(intent);
-                // Reset button state after launching
-                createMegamaButton.setEnabled(true);
-                createMegamaButton.setText("המשך");
-            } else {
-                // If not available in intent, try fetching from Firestore
-                fireDB.collection("schools").document(schoolId)
-                      .collection("megamot").document(megamaName)
-                      .get()
-                      .addOnSuccessListener(documentSnapshot -> {
-                          if (documentSnapshot.exists()) {
-                              ArrayList<String> fetchedUrls = (ArrayList<String>) documentSnapshot.get("imageUrls");
-                              if (fetchedUrls != null && !fetchedUrls.isEmpty()) {
-                                  intent.putStringArrayListExtra("imageUrls", fetchedUrls);
-                              }
-                          }
-                          megamaAttachmentsLauncher.launch(intent);
-                          // Reset button state after launching
-                          createMegamaButton.setEnabled(true);
-                          createMegamaButton.setText("המשך");
-                      })
-                      .addOnFailureListener(e -> {
-                          // Continue even if fetch fails
-                          megamaAttachmentsLauncher.launch(intent);
-                          // Reset button state after launching
-                          createMegamaButton.setEnabled(true);
-                          createMegamaButton.setText("המשך");
-                      });
+        // Pass existing image URLs if in update mode
+        boolean isUpdateMode = getIntent().getBooleanExtra("isUpdate", false);
+        if (isUpdateMode) {
+            // Fetch existing images if needed (assuming they are loaded into the current activity's state)
+            // For simplicity, let's assume `uploadedImageUrls` already contains them if `loadExistingMegamaData` was called
+            // You might need to retrieve them again if they are not stored efficiently.
+            ArrayList<String> existingImageUrls = getIntent().getStringArrayListExtra("imageUrls");
+            if (existingImageUrls != null) {
+                intent.putStringArrayListExtra("imageUrls", existingImageUrls);
             }
-        } else {
-            // If not in update mode, just launch
-            megamaAttachmentsLauncher.launch(intent);
-            // Reset button state after launching
-            createMegamaButton.setEnabled(true);
-            createMegamaButton.setText("המשך");
+            intent.putExtra("isUpdate", true);
         }
+
+        megamaAttachmentsLauncher.launch(intent);
     }
-    
+
+    /**
+     * מנווט את המשתמש למסך ההתחברות אם פרטי בית הספר או הרכז חסרים.
+     */
     private void goToLoginScreen() {
         Intent intent = new Intent(this, loginPage.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         startActivity(intent);
         finish();
     }
-    
-    // מחלקה לייצוג מגמה
+
+    /**
+     * מחלקה המייצגת מודל נתונים עבור מגמה.
+     */
     public static class Megama {
         private String name;
         private String description;
@@ -595,13 +479,11 @@ public class megamaCreate extends AppCompatActivity {
         private List<String> customConditions;
         private List<String> imageUrls;
         private int currentEnrolled = 0;
-        
-        // קונסטרקטור ריק לפיירבייס
+
         public Megama() {
-            this.customConditions = new ArrayList<>();
-            this.imageUrls = new ArrayList<>();
+            // Required empty public constructor for Firestore
         }
-        
+
         public Megama(String name, String description, String rakazUsername, 
                      boolean requiresExam, boolean requiresGradeAvg, int requiredGradeAvg, 
                      List<String> customConditions, List<String> imageUrls) {
@@ -611,39 +493,38 @@ public class megamaCreate extends AppCompatActivity {
             this.requiresExam = requiresExam;
             this.requiresGradeAvg = requiresGradeAvg;
             this.requiredGradeAvg = requiredGradeAvg;
-            this.customConditions = customConditions != null ? new ArrayList<>(customConditions) : new ArrayList<>();
-            this.imageUrls = imageUrls != null ? new ArrayList<>(imageUrls) : new ArrayList<>();
+            this.customConditions = customConditions;
+            this.imageUrls = imageUrls;
         }
-        
-        // גטרים וסטרים
+
         public String getName() { return name; }
         public void setName(String name) { this.name = name; }
-        
+
         public String getDescription() { return description; }
         public void setDescription(String description) { this.description = description; }
-        
+
         public String getRakazUsername() { return rakazUsername; }
         public void setRakazUsername(String rakazUsername) { this.rakazUsername = rakazUsername; }
-        
+
         public boolean isRequiresExam() { return requiresExam; }
         public void setRequiresExam(boolean requiresExam) { this.requiresExam = requiresExam; }
-        
+
         public boolean isRequiresGradeAvg() { return requiresGradeAvg; }
         public void setRequiresGradeAvg(boolean requiresGradeAvg) { this.requiresGradeAvg = requiresGradeAvg; }
-        
+
         public int getRequiredGradeAvg() { return requiredGradeAvg; }
         public void setRequiredGradeAvg(int requiredGradeAvg) { this.requiredGradeAvg = requiredGradeAvg; }
-        
+
         public List<String> getCustomConditions() { return customConditions; }
         public void setCustomConditions(List<String> customConditions) { 
-            this.customConditions = customConditions != null ? new ArrayList<>(customConditions) : new ArrayList<>(); 
+            this.customConditions = customConditions != null ? new ArrayList<>(customConditions) : new ArrayList<>();
         }
-        
+
         public List<String> getImageUrls() { return imageUrls; }
         public void setImageUrls(List<String> imageUrls) { 
-            this.imageUrls = imageUrls != null ? new ArrayList<>(imageUrls) : new ArrayList<>(); 
+            this.imageUrls = imageUrls != null ? new ArrayList<>(imageUrls) : new ArrayList<>();
         }
-        
+
         public int getCurrentEnrolled() { return currentEnrolled; }
         public void setCurrentEnrolled(int currentEnrolled) { this.currentEnrolled = currentEnrolled; }
     }

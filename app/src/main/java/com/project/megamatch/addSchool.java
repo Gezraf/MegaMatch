@@ -35,19 +35,59 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+/**
+ * מחלקה זו מאפשרת למשתמש להוסיף בתי ספר חדשים למערכת.
+ * היא משתמשת בקובץ `schools.csv` ובמסד הנתונים של Firestore כדי לאמת את פרטי בית הספר,
+ * ומוסיפה את בית הספר כקולקציה חדשה ב-Firestore, יחד עם קולקציות משנה נדרשות.
+ */
 public class addSchool extends AppCompatActivity {
 
+    /**
+     * תגית המשמשת לרישום הודעות לוג (Logcat).
+     */
     private static final String TAG = "AddSchool";
+    /**
+     * שדה קלט עבור סמל המוסד או שם בית הספר.
+     */
     private EditText schoolIdEditText;
+    /**
+     * רכיב ה-TextView המציג מידע כללי או הודעות למשתמש.
+     */
     private TextView schoolInfoTextView;
+    /**
+     * רכיב ה-TextView המציג את שם בית הספר שנמצא.
+     */
     private TextView schoolNameTextView;
+    /**
+     * רכיב ה-TextView המציג את עיר בית הספר שנמצא.
+     */
     private TextView townTextView;
+    /**
+     * כרטיס המכיל את פרטי בית הספר שנמצא (שם ועיר).
+     */
     private MaterialCardView schoolNameCard;
+    /**
+     * כפתור הוספת בית הספר.
+     */
     private Button addButton;
+    /**
+     * סרגל התקדמות (Progress Bar) המוצג בזמן פעולות אסינכרוניות.
+     */
     private ProgressBar progressBar;
+    /**
+     * מופע של FirebaseFirestore לגישה למסד הנתונים.
+     */
     private FirebaseFirestore db;
+    /**
+     * רשימת כל בתי הספר שנטענו מקובץ ה-CSV.
+     */
     private List<schoolsDB.School> allSchools;
 
+    /**
+     * נקודת הכניסה לפעילות. מאתחלת את רכיבי הממשק, טוענת את רשימת בתי הספר מה-CSV,
+     * ומגדירה מאזין טקסט לשדה קלט מזהה בית הספר.
+     * @param savedInstanceState אובייקט Bundle המכיל את מצב הפעילות שנשמר.
+     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -59,15 +99,15 @@ public class addSchool extends AppCompatActivity {
             return insets;
         });
 
-        // Initialize Firebase
+        // אתחול Firebase
         db = FirebaseFirestore.getInstance();
 
-        // Load schools from CSV
+        // טעינת בתי ספר מקובץ ה-CSV
         schoolsDB.loadSchoolsFromCSV(this);
         allSchools = schoolsDB.getAllSchools();
         Log.d(TAG, "Loaded " + allSchools.size() + " schools from CSV");
 
-        // Initialize UI elements
+        // אתחול רכיבי ממשק המשתמש
         schoolIdEditText = findViewById(R.id.schoolIdEditText);
         schoolInfoTextView = findViewById(R.id.schoolInfoTextView);
         schoolNameTextView = findViewById(R.id.schoolNameTextView);
@@ -76,16 +116,16 @@ public class addSchool extends AppCompatActivity {
         addButton = findViewById(R.id.addButton);
         progressBar = findViewById(R.id.progressBar);
 
-        // Set up TextWatcher for school ID input
+        // הגדרת מאזין טקסט לשדה קלט מזהה בית הספר
         schoolIdEditText.addTextChangedListener(new TextWatcher() {
             @Override
             public void beforeTextChanged(CharSequence s, int start, int count, int after) {
-                // Not used
+                // לא בשימוש
             }
 
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
-                // Not used
+                // לא בשימוש
             }
 
             @Override
@@ -97,76 +137,85 @@ public class addSchool extends AppCompatActivity {
         addButton.setOnClickListener(v -> addSchoolToFirestore());
     }
 
+    /**
+     * מעדכנת את פרטי בית הספר המוצגים על המסך בהתאם לקלט המשתמש (סמל מוסד או שם בית ספר).
+     * @param input הקלט של המשתמש (סמל מוסד או שם בית ספר).
+     */
     private void updateSchoolInfo(String input) {
-        // Hide the card by default
+        // הסתר את הכרטיס כברירת מחדל
         schoolNameCard.setVisibility(View.GONE);
         
-        // Show instruction text when field is empty
+        // הצג טקסט הוראות כאשר השדה ריק
         if (input.isEmpty()) {
             schoolInfoTextView.setText("מידע אודות בית הספר יתמלא אוטומטית לפי סמל המוסד או שם בית הספר");
             schoolInfoTextView.setVisibility(View.VISIBLE);
             return;
         }
         
-        // Try to find school by ID first
+        // נסה למצוא בית ספר לפי מזהה תחילה
         if (input.matches("\\d+")) {
             try {
                 int schoolId = Integer.parseInt(input);
                 schoolsDB.School foundSchool = findSchoolById(schoolId);
                 
                 if (foundSchool != null) {
-                    // Valid school found - show the card
+                    // בית ספר חוקי נמצא - הצג את הכרטיס
                     schoolNameTextView.setText(foundSchool.getSchoolName());
                     townTextView.setText(foundSchool.getTown());
                     schoolNameCard.setVisibility(View.VISIBLE);
                     
-                    // Hide the info text when we show the card
+                    // הסתר את טקסט המידע כאשר הכרטיס מוצג
                     schoolInfoTextView.setVisibility(View.GONE);
                     return;
                 }
             } catch (NumberFormatException e) {
-                // Not a valid number, continue to search by name
+                // לא מספר חוקי, המשך לחיפוש לפי שם
             }
         }
         
-        // If not found by ID or not a number, search by name
+        // אם לא נמצא לפי מזהה או לא מספר, חפש לפי שם
         schoolsDB.School foundSchool = findSchoolByName(input);
         if (foundSchool != null) {
-            // Valid school found - show the card
+            // בית ספר חוקי נמצא - הצג את הכרטיס
             schoolNameTextView.setText(foundSchool.getSchoolName());
             townTextView.setText(foundSchool.getTown());
             schoolNameCard.setVisibility(View.VISIBLE);
             
-            // Hide the info text when we show the card
+            // הסתר את טקסט המידע כאשר הכרטיס מוצג
             schoolInfoTextView.setVisibility(View.GONE);
         } else {
-            // School not found
+            // בית ספר לא נמצא
             schoolInfoTextView.setText("לא נמצא בית ספר עם סמל מוסד או שם זה");
             schoolInfoTextView.setVisibility(View.VISIBLE);
         }
     }
 
+    /**
+     * מוסיפה את בית הספר הנבחר למסד הנתונים של Firestore.
+     * מבצעת ולידציה על הקלט, בודקת אם בית הספר כבר קיים,
+     * ויוצרת את המסמך המתאים ב-Firestore יחד עם קולקציות משנה נדרשות.
+     */
     private void addSchoolToFirestore() {
         String input = schoolIdEditText.getText().toString().trim();
 
-        // Validate input
+        // ולידציה של קלט
         if (input.isEmpty()) {
             Toast.makeText(this, "נא להזין סמל מוסד או שם בית ספר", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        // Try to find school by ID first
+        // נסה למצוא בית ספר לפי מזהה תחילה
         schoolsDB.School foundSchool = null;
         if (input.matches("\\d+")) {
             try {
                 int schoolId = Integer.parseInt(input);
                 foundSchool = findSchoolById(schoolId);
         } catch (NumberFormatException e) {
-                // Not a valid number, continue to search by name
+                // לא מספר חוקי, המשך לחיפוש לפי שם
             }
         }
 
-        // If not found by ID, search by name
+        // אם לא נמצא לפי מזהה, חפש לפי שם
         if (foundSchool == null) {
             foundSchool = findSchoolByName(input);
         }
@@ -176,31 +225,31 @@ public class addSchool extends AppCompatActivity {
             return;
         }
 
-        // Extract school info
+        // חילוץ פרטי בית הספר
         String schoolName = foundSchool.getSchoolName();
         String schoolSymbol = String.valueOf(foundSchool.getSchoolId());
         String schoolTown = foundSchool.getTown();
 
-        // Show progress
+        // הצגת סרגל התקדמות
         progressBar.setVisibility(View.VISIBLE);
         addButton.setEnabled(false);
 
-        // Check if school already exists
+        // בדיקה אם בית הספר כבר קיים
         db.collection("schools").document(schoolSymbol)
             .get()
             .addOnCompleteListener(task -> {
                 if (task.isSuccessful() && task.getResult().exists()) {
-                    // School already exists
+                    // בית ספר כבר קיים
                     Toast.makeText(addSchool.this, "בית ספר עם סמל זה כבר קיים במערכת", Toast.LENGTH_SHORT).show();
                     progressBar.setVisibility(View.GONE);
                     addButton.setEnabled(true);
                 } else {
-                    // Create the school document
+                    // יצירת מסמך בית הספר
                     Map<String, Object> schoolData = new HashMap<>();
                     schoolData.put("name", schoolName);
                     schoolData.put("town", schoolTown);
                     
-                    // Format current date as DD:MM:YYYY
+                    // עיצוב התאריך הנוכחי כ-DD:MM:YYYY
                     SimpleDateFormat dateFormat = new SimpleDateFormat("dd:MM:yyyy", Locale.getDefault());
                     String formattedDate = dateFormat.format(new Date());
                     schoolData.put("createdAt", formattedDate);
@@ -208,10 +257,10 @@ public class addSchool extends AppCompatActivity {
                     db.collection("schools").document(schoolSymbol)
                         .set(schoolData)
                         .addOnSuccessListener(aVoid -> {
-                            // Create all required subcollections
+                            // יצירת כל קולקציות המשנה הנדרשות
                             createAllSubcollections(schoolSymbol);
 
-                            // Show success dialog instead of Toast
+                            // הצגת דיאלוג הצלחה במקום טוסט
                             showSuccessDialog("בית הספר " + schoolName + " נוסף בהצלחה!");
                             schoolIdEditText.setText("");
                             schoolNameCard.setVisibility(View.GONE);
@@ -229,6 +278,11 @@ public class addSchool extends AppCompatActivity {
             });
     }
 
+    /**
+     * מוצא בית ספר ברשימת בתי הספר שנטענו מה-CSV לפי מזהה בית הספר.
+     * @param schoolId מזהה בית הספר לחיפוש.
+     * @return אובייקט School אם נמצא, אחרת null.
+     */
     private schoolsDB.School findSchoolById(int schoolId) {
         for (schoolsDB.School school : allSchools) {
             if (school.getSchoolId() == schoolId) {
@@ -238,6 +292,12 @@ public class addSchool extends AppCompatActivity {
         return null;
     }
 
+    /**
+     * מוצא בית ספר ברשימת בתי הספר שנטענו מה-CSV לפי שם בית הספר.
+     * החיפוש אינו תלוי רישיות ובודק אם השם מכיל את מחרוזת החיפוש.
+     * @param name שם בית הספר לחיפוש.
+     * @return אובייקט School אם נמצא, אחרת null.
+     */
     private schoolsDB.School findSchoolByName(String name) {
         String searchName = name.trim().toLowerCase();
         for (schoolsDB.School school : allSchools) {
@@ -248,26 +308,36 @@ public class addSchool extends AppCompatActivity {
         return null;
     }
 
+    /**
+     * יוצר את כל קולקציות המשנה הנדרשות עבור בית ספר חדש ב-Firestore.
+     * קולקציות אלו כוללות: allowedRakazEmails, megamot, rakazim, ו-managers.
+     * @param schoolId מזהה בית הספר שעבורו יש ליצור את קולקציות המשנה.
+     */
     private void createAllSubcollections(String schoolId) {
-        // Create all required subcollections
+        // יצירת כל קולקציות המשנה הנדרשות
         createEmptyCollection(schoolId, "allowedRakazEmails");
         createEmptyCollection(schoolId, "megamot");
         createEmptyCollection(schoolId, "rakazim");
         createEmptyCollection(schoolId, "managers");
     }
 
+    /**
+     * יוצר קולקציה ריקה (עם מסמך אתחול/דמה) ב-Firestore עבור בית ספר נתון.
+     * @param schoolId מזהה בית הספר.
+     * @param collectionName שם הקולקציה ליצירה.
+     */
     private void createEmptyCollection(String schoolId, String collectionName) {
         Log.d(TAG, "Creating subcollection: " + collectionName + " for school: " + schoolId);
         CollectionReference collectionRef = db.collection("schools").document(schoolId)
                 .collection(collectionName);
         
-        // Create a document appropriate for the collection type
+        // יצירת מסמך מתאים לסוג הקולקציה
         if (collectionName.equals("allowedRakazEmails")) {
-            // For allowedRakazEmails, create an initialization document
+            // עבור allowedRakazEmails, צור מסמך אתחול
             Map<String, Object> initData = new HashMap<>();
             initData.put("_init", true);
             
-            // Format current date as DD:MM:YYYY
+            // עיצוב התאריך הנוכחי כ-DD:MM:YYYY
             SimpleDateFormat dateFormat = new SimpleDateFormat("dd:MM:yyyy", Locale.getDefault());
             String formattedDate = dateFormat.format(new Date());
             initData.put("createdAt", formattedDate);
@@ -282,11 +352,11 @@ public class addSchool extends AppCompatActivity {
                     Toast.makeText(addSchool.this, "שגיאה ביצירת " + collectionName + ": " + e.getMessage(), Toast.LENGTH_SHORT).show();
                 });
         } else {
-            // For other collections, create a dummy document
+            // עבור קולקציות אחרות, צור מסמך דמה
             Map<String, Object> dummyData = new HashMap<>();
             dummyData.put("dummy", true);
             
-            // Format current date as DD:MM:YYYY
+            // עיצוב התאריך הנוכחי כ-DD:MM:YYYY
             SimpleDateFormat dateFormat = new SimpleDateFormat("dd:MM:yyyy", Locale.getDefault());
             String formattedDate = dateFormat.format(new Date());
             dummyData.put("createdAt", formattedDate);
@@ -304,48 +374,49 @@ public class addSchool extends AppCompatActivity {
     }
 
     /**
-     * Show a custom styled success dialog
-     * @param message The success message to display
+     * מציג דיאלוג הצלחה מותאם אישית לאחר הוספת בית ספר בהצלחה.
+     * הדיאלוג כולל הודעת הצלחה, כותרת, אייקון אישור וכפתור סגירה.
+     * @param message הודעת ההצלחה להצגה.
      */
     private void showSuccessDialog(String message) {
-        // Create a dialog
+        // יצירת דיאלוג
         Dialog customDialog = new Dialog(this);
         customDialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
         customDialog.setCancelable(false);
         
-        // Set the custom layout
+        // הגדרת פריסה מותאמת אישית
         customDialog.setContentView(R.layout.success_dialog);
         
-        // Get window to set layout parameters
+        // קבלת חלון הדיאלוג כדי להגדיר פרמטרי פריסה
         Window window = customDialog.getWindow();
         if (window != null) {
             window.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
             window.setBackgroundDrawable(new ColorDrawable(android.graphics.Color.TRANSPARENT));
             
-            // Add custom animation
+            // הוספת אנימציה מותאמת אישית
             window.setWindowAnimations(R.style.DialogAnimation);
         }
         
-        // Set the success message
+        // הגדרת הודעת ההצלחה
         TextView messageView = customDialog.findViewById(R.id.dialogMessage);
         if (messageView != null) {
             messageView.setText(message);
         }
         
-        // Set the title
+        // הגדרת הכותרת
         TextView titleView = customDialog.findViewById(R.id.dialogTitle);
         if (titleView != null) {
             titleView.setText("הוספת בית ספר");
         }
         
-        // Set the success icon
+        // הגדרת אייקון ההצלחה
         ImageView iconView = customDialog.findViewById(R.id.successIcon);
         if (iconView != null) {
-            // Use checkmark icon
+            // השתמש באייקון וי
             iconView.setImageResource(R.drawable.ic_checkmark);
         }
         
-        // Set up the close button
+        // הגדרת כפתור הסגירה
         MaterialButton closeButton = customDialog.findViewById(R.id.closeButton);
         if (closeButton != null) {
             closeButton.setOnClickListener(v -> {
@@ -353,10 +424,15 @@ public class addSchool extends AppCompatActivity {
             });
         }
         
-        // Show the dialog
+        // הצגת הדיאלוג
         customDialog.show();
     }
 
+    /**
+     * מטפל בלחיצה על כפתור החזרה.
+     * מסיים את הפעילות הנוכחית ומחזיר למסך הקודם.
+     * @param view אובייקט ה-View של הכפתור שנלחץ.
+     */
     public void goBack(View view) {
         onBackPressed();
     }

@@ -11,10 +11,14 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.firebase.firestore.FirebaseFirestore;
 
+/**
+ * מחלקה זו מייצגת את מסך הטעינה של מנהל המערכת.
+ * היא מבצעת טעינת נתונים מפיירבייס ומציגה מסך טעינה למשך זמן מינימלי.
+ */
 public class AdminLoadingActivity extends AppCompatActivity {
 
     private static final String TAG = "AdminLoadingActivity";
-    private static final int MIN_LOADING_TIME = 1000; // Minimum time to show loading screen (milliseconds)
+    private static final int MIN_LOADING_TIME = 1000; // זמן מינימלי להצגת מסך הטעינה (באלפיות השנייה)
     
     private TextView loadingText;
     private FirebaseFirestore fireDB;
@@ -27,77 +31,89 @@ public class AdminLoadingActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.loading_screen);
 
-        // Initialize views
+        // אתחול רכיבי הממשק
         loadingText = findViewById(R.id.loadingText);
         loadingText.setText("טוען נתוני מנהל מערכת...");
         
-        // Initialize Firestore
+        // אתחול פיירבייס
         fireDB = FirebaseFirestore.getInstance();
         
-        // Get admin credentials from shared preferences
+        // קבלת פרטי מנהל מהעדפות משותפות
         SharedPreferences sharedPreferences = getSharedPreferences("MegaMatchPrefs", MODE_PRIVATE);
         adminUsername = sharedPreferences.getString("loggedInAdmin", "");
         
-        // Validate credentials
+        // בדיקת תקינות פרטי ההתחברות
         if (adminUsername.isEmpty()) {
             goToLoginScreen();
             return;
         }
         
-        // Record start time
+        // רישום זמן התחלה
         startTime = System.currentTimeMillis();
         
-        // Start loading data
+        // התחלת טעינת נתונים
         loadAdminData();
     }
     
+    /**
+     * טוען את נתוני המנהל מפיירבייס
+     */
     private void loadAdminData() {
-        // Load admin data from Firestore
+        // טעינת נתוני מנהל מפיירבייס
         fireDB.collection("admins").document(adminUsername)
               .get()
               .addOnSuccessListener(documentSnapshot -> {
                   if (documentSnapshot.exists() && Boolean.TRUE.equals(documentSnapshot.getBoolean("admin"))) {
-                      Log.d(TAG, "Admin data loaded successfully");
+                      Log.d(TAG, "נתוני המנהל נטענו בהצלחה");
                       
-                      // Mark data as loaded
+                      // סימון הנתונים כנטענו
                       dataLoaded = true;
                       
-                      // Check if minimum loading time has passed
+                      // בדיקה אם חלף זמן הטעינה המינימלי
                       checkNavigationConditions();
                   } else {
-                      // Admin document doesn't exist or user is not an admin
-                      Log.e(TAG, "Admin document not found or user is not an admin");
+                      // מסמך המנהל לא קיים או המשתמש אינו מנהל
+                      Log.e(TAG, "מסמך המנהל לא נמצא או המשתמש אינו מנהל");
                       goToLoginScreen();
                   }
               })
               .addOnFailureListener(e -> {
-                  // Error loading admin data
-                  Log.e(TAG, "Error loading admin data: " + e.getMessage());
+                  // שגיאה בטעינת נתוני המנהל
+                  Log.e(TAG, "שגיאה בטעינת נתוני המנהל: " + e.getMessage());
                   goToLoginScreen();
               });
     }
     
+    /**
+     * בודק את תנאי הניווט ומחליט אם לעבור למסך הבא
+     */
     private void checkNavigationConditions() {
         long elapsedTime = System.currentTimeMillis() - startTime;
         
         if (elapsedTime >= MIN_LOADING_TIME && dataLoaded) {
-            // Both conditions met, proceed to admin hub
+            // שני התנאים התקיימו, המשך למרכז הבקרה
             goToAdminHub();
         } else {
-            // Wait for the remaining time
+            // המתנה לזמן הנותר
             long remainingTime = Math.max(0, MIN_LOADING_TIME - elapsedTime);
             new Handler().postDelayed(this::goToAdminHub, remainingTime);
         }
     }
     
+    /**
+     * מעבר למרכז הבקרה של המנהל
+     */
     private void goToAdminHub() {
         Intent intent = new Intent(this, adminHub.class);
         startActivity(intent);
         finish();
     }
     
+    /**
+     * מעבר למסך ההתחברות וניקוי סשן המנהל
+     */
     private void goToLoginScreen() {
-        // Clear the admin session
+        // ניקוי סשן המנהל
         getSharedPreferences("MegaMatchPrefs", MODE_PRIVATE)
             .edit()
             .remove("loggedInAdmin")

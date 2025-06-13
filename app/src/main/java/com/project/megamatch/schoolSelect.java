@@ -37,7 +37,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 /**
- * Activity for selecting a school from a list
+ * פעילות לבחירת בית ספר מתוך רשימה
+ * מסך זה מאפשר למשתמש לבחור בית ספר מתוך רשימת בתי הספר הקיימים במערכת
  */
 public class schoolSelect extends AppCompatActivity implements SchoolAdapter.OnSchoolClickListener {
 
@@ -65,6 +66,10 @@ public class schoolSelect extends AppCompatActivity implements SchoolAdapter.OnS
 
     private boolean isAdmin = false;
 
+    /**
+     * נקרא בעת יצירת הפעילות
+     * מאתחל את הממשק, טוען נתוני בתי הספר ומגדיר את הרכיבים
+     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);

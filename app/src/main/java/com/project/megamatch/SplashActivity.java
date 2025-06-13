@@ -15,53 +15,80 @@ import android.animation.ValueAnimator;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.constraintlayout.widget.ConstraintLayout;
 
+/**
+ * מחלקה זו מייצגת את מסך הפתיחה (Splash Screen) של האפליקציה.
+ * תפקידה להציג אנימציית פתיחה קצרה עם לוגו ושם האפליקציה,
+ * ולאחר מכן לנווט אוטומטית למסך ההתחברות הראשי.
+ */
 public class SplashActivity extends AppCompatActivity {
 
-    private static final int SPLASH_DURATION = 3000; // Adjusted for slower fade-in
+    /**
+     * משך הזמן המינימלי שמסך הפתיחה יוצג (באלפיות השנייה).
+     * הוגדר ל-3000 אלפיות שנייה (3 שניות) לחווית טעינה חלקה.
+     */
+    private static final int SPLASH_DURATION = 3000;
+    /**
+     * רכיב ה-ImageView המציג את לוגו האפליקציה.
+     */
     private ImageView logoImage;
+    /**
+     * רכיב ה-TextView המציג את שם האפליקציה.
+     */
     private TextView titleText;
+    /**
+     * רכיב ה-ConstraintLayout הראשי של המסך.
+     */
     private ConstraintLayout rootLayout;
 
+    /**
+     * נקודת הכניסה לפעילות. מאתחלת את רכיבי הממשק, טוענת ומפעילה אנימציות,
+     * ומגדירה השהיה לפני המעבר למסך ההתחברות.
+     * @param savedInstanceState אובייקט Bundle המכיל את מצב הפעילות שנשמר.
+     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_splash);
 
-        // Get views for animation
+        // קבלת הפניות לרכיבי הממשק עבור האנימציות
         logoImage = findViewById(R.id.logo_image);
         titleText = findViewById(R.id.title_text);
         rootLayout = findViewById(android.R.id.content).getRootView().findViewById(R.id.splash_root);
 
         try {
-            // Load animations
+            // טעינת אנימציות הלוגו והטקסט
             Animation logoBounceAnim = AnimationUtils.loadAnimation(this, R.anim.fade_and_bounce);
             Animation textSlideAnim = AnimationUtils.loadAnimation(this, R.anim.slide_up_and_fade);
 
-            // Start animations
+            // הפעלת האנימציות
             logoImage.startAnimation(logoBounceAnim);
             titleText.startAnimation(textSlideAnim);
         } catch (Exception e) {
-            // If animations fail, we can still proceed
+            // במקרה שכשל טעינת או הפעלת אנימציות, עדיין ניתן להמשיך
             e.printStackTrace();
         }
 
-        // Delay and then go to next screen with fade out
+        // הגדרת השהיה לפני הפעלת אנימציית ה-Fade Out והמעבר למסך הבא
         new Handler().postDelayed(this::startFadeOutAndTransition, SPLASH_DURATION);
     }
 
+    /**
+     * מפעיל את אנימציית ה-Fade Out עבור הלוגו והטקסט,
+     * ולאחר השלמתה מנווט למסך ההתחברות.
+     */
     private void startFadeOutAndTransition() {
         try {
-            // Create fade out animations
+            // יצירת אנימציות Fade Out
             ObjectAnimator logoFadeOut = ObjectAnimator.ofFloat(logoImage, "alpha", 1f, 0f);
             ObjectAnimator textFadeOut = ObjectAnimator.ofFloat(titleText, "alpha", 1f, 0f);
             
-            // Prepare the animation set
+            // הכנת סט אנימציות שירוץ במקביל
             AnimatorSet animSet = new AnimatorSet();
             animSet.playTogether(logoFadeOut, textFadeOut);
-            animSet.setDuration(900); // Increased to 900ms (0.9 seconds) for a smoother fade-out
-            animSet.setInterpolator(new android.view.animation.DecelerateInterpolator(1.5f)); // Smoother deceleration
-            
-            // Add listener to navigate when animation completes
+            animSet.setDuration(900); // הגדלת משך הזמן ל-900 אלפיות שנייה (0.9 שניות) למעבר חלק יותר
+            animSet.setInterpolator(new android.view.animation.DecelerateInterpolator(1.5f)); // אינטרפולטור להאטה הדרגתית
+
+            // הוספת מאזין לאנימציה כדי לנווט כשהיא מסתיימת
             animSet.addListener(new android.animation.AnimatorListenerAdapter() {
                 @Override
                 public void onAnimationEnd(android.animation.Animator animation) {
@@ -69,15 +96,18 @@ public class SplashActivity extends AppCompatActivity {
                 }
             });
             
-            // Start the animation
+            // הפעלת האנימציה
             animSet.start();
         } catch (Exception e) {
-            // If animation fails, navigate directly
+            // אם האנימציה נכשלת, נווט ישירות
             e.printStackTrace();
             navigateToLoginScreen();
         }
     }
 
+    /**
+     * מנווט את המשתמש למסך ההתחברות (loginPage) ומסיים את הפעילות הנוכחית.
+     */
     private void navigateToLoginScreen() {
         Intent intent = new Intent(SplashActivity.this, loginPage.class);
         startActivity(intent);

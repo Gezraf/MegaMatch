@@ -24,15 +24,29 @@ import okhttp3.RequestBody;
 import okhttp3.Response;
 
 /**
- * Utility class for handling Supabase Storage operations
+ * מחלקת עזר לטיפול בפעולות אחסון ב-Supabase Storage.
+ * מספקת פונקציונליות להעלאת תמונות לשרת האחסון של Supabase.
  */
 public class SupabaseStorageUtil {
+    /**
+     * תגית המשמשת לרישום הודעות לוג (Logcat).
+     */
     private static final String TAG = "SupabaseStorageUtil";
     
-    // Constants for folder structure
+    // קבועים עבור מבנה תיקיות האחסון ב-Supabase
+    /**
+     * שם תיקיית השורש עבור בתי ספר ב-Supabase Storage.
+     */
     private static final String SCHOOLS_FOLDER = "schools";
+    /**
+     * שם תיקיית המשנה עבור רכזים ב-Supabase Storage.
+     */
     private static final String RAKAZIM_FOLDER = "rakazim";
     
+    /**
+     * מופע של OkHttpClient המשמש לביצוע בקשות HTTP.
+     * הוגדר עם זמני קריאה, כתיבה וחיבור של 30 שניות.
+     */
     private static final OkHttpClient client = new OkHttpClient.Builder()
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
@@ -40,63 +54,65 @@ public class SupabaseStorageUtil {
             .build();
     
     /**
-     * Upload an image to Supabase Storage
+     * מעלה תמונה ל-Supabase Storage באופן אסינכרוני.
+     * יוצרת נתיב תיקייה ייחודי עבור בית הספר ושם המשתמש,
+     * ומעלה את קובץ התמונה למיקום זה. תומך במנגנון נפילה (fallback) להעלאה ישירה.
      * 
-     * @param context Context for accessing content resolver
-     * @param imageUri URI of the image to upload
-     * @param schoolId School ID for folder path
-     * @param username Username for folder path
-     * @param callback Callback to handle the upload result
+     * @param context הקונטקסט של היישום, לגישה ל-ContentResolver.
+     * @param imageUri URI של התמונה להעלאה.
+     * @param schoolId מזהה בית הספר, המשמש כחלק מנתיב התיקייה.
+     * @param username שם המשתמש, המשמש כחלק מנתיב התיקייה.
+     * @param callback ממשק Callback לטיפול בתוצאת ההעלאה (הצלחה או שגיאה).
      */
     public static void uploadImage(Context context, Uri imageUri, String schoolId, 
                                   String username, UploadCallback callback) {
         new Thread(() -> {
             try {
-                Log.d(TAG, "Starting image upload process");
+                Log.d(TAG, "מתחיל תהליך העלאת תמונה");
                 
-                // Get Supabase configuration from resources
+                // קבלת הגדרות Supabase ממשאבים
                 String supabaseUrl = context.getString(R.string.supabase_url);
                 String supabaseApiKey = context.getString(R.string.supabase_api_key);
                 String bucketName = context.getString(R.string.supabase_bucket_name);
                 
-                Log.d(TAG, "Using Supabase URL: " + supabaseUrl);
-                Log.d(TAG, "Using bucket: " + bucketName);
-                Log.d(TAG, "API Key (first 10 chars): " + 
-                      (supabaseApiKey.length() > 10 ? supabaseApiKey.substring(0, 10) + "..." : "Invalid key"));
+                Log.d(TAG, "משתמש בכתובת Supabase: " + supabaseUrl);
+                Log.d(TAG, "משתמש בדלי: " + bucketName);
+                Log.d(TAG, "מפתח API (10 תווים ראשונים): " + 
+                      (supabaseApiKey.length() > 10 ? supabaseApiKey.substring(0, 10) + "..." : "מפתח לא חוקי"));
                 
-                // First check bucket permissions
+                // בדוק תחילה הרשאות דלי
                 if (!checkBucketPermission(supabaseUrl, supabaseApiKey, bucketName)) {
                     if (callback != null) {
-                        callback.onError("No permission to access storage bucket. Please verify Supabase configuration.");
+                        callback.onError("אין הרשאה לגשת לדלי האחסון. אנא ודא את הגדרות Supabase.");
                     }
                     return;
                 }
                 
-                // Create folder path - ensure path is properly formatted
+                // יצירת נתיב תיקייה - ודא שהנתיב מעוצב כהלכה
                 String folderPath = SCHOOLS_FOLDER + "/" + schoolId + "/" + RAKAZIM_FOLDER + "/" + username;
                 
-                // Generate a unique filename for the image
+                // יצירת שם קובץ ייחודי לתמונה
                 String filename = UUID.randomUUID().toString() + ".jpg";
                 
-                // Create the complete path including filename
+                // יצירת הנתיב המלא כולל שם הקובץ
                 String fullPath = folderPath + "/" + filename;
                 
-                // Convert Uri to File
+                // המרת Uri לקובץ
                 File imageFile = uriToFile(context, imageUri);
                 if (imageFile == null || !imageFile.exists()) {
-                    Log.e(TAG, "Failed to create image file from URI");
+                    Log.e(TAG, "כשל ביצירת קובץ תמונה מ-URI");
                     if (callback != null) {
-                        callback.onError("Failed to process image file");
+                        callback.onError("כשל בעיבוד קובץ תמונה");
                     }
                     return;
                 }
                 
-                Log.d(TAG, "Image file created: " + imageFile.length() + " bytes");
+                Log.d(TAG, "קובץ תמונה נוצר: " + imageFile.length() + " בתים");
                 
-                // Try using the POST upload endpoint instead of PUT
+                // נסה להשתמש בנקודת הקצה של העלאה בשיטת POST במקום PUT
                 String uploadUrl = supabaseUrl + "/storage/v1/object/" + bucketName;
                 
-                // Create multipart request for the POST endpoint
+                // יצירת בקשה מרובת חלקים (multipart) עבור נקודת הקצה POST
                 MultipartBody.Builder multipartBuilder = new MultipartBody.Builder()
                     .setType(MultipartBody.FORM)
                     .addFormDataPart("file", filename,
@@ -106,7 +122,7 @@ public class SupabaseStorageUtil {
                 
                 RequestBody requestBody = multipartBuilder.build();
                 
-                // Build request
+                // בניית בקשה
                 Request request = new Request.Builder()
                     .url(uploadUrl)
                     .addHeader("apikey", supabaseApiKey)
@@ -114,58 +130,62 @@ public class SupabaseStorageUtil {
                     .post(requestBody)
                     .build();
                 
-                Log.d(TAG, "Executing request to " + uploadUrl);
+                Log.d(TAG, "מבצע בקשה ל- " + uploadUrl);
                 
-                // Execute request
+                // ביצוע הבקשה
                 Response response = client.newCall(request).execute();
                 
                 if (response.isSuccessful()) {
                     String responseBody = response.body() != null ? response.body().string() : "";
-                    Log.d(TAG, "Upload successful: " + responseBody);
+                    Log.d(TAG, "העלאה מוצלחת: " + responseBody);
                     
-                    // Generate public URL for the image
+                    // יצירת URL ציבורי לתמונה
                     String publicUrl = supabaseUrl + "/storage/v1/object/public/" + bucketName + "/" + fullPath;
                     
-                    Log.d(TAG, "Generated public URL: " + publicUrl);
+                    Log.d(TAG, "נוצר URL ציבורי: " + publicUrl);
                     
-                    // Pass the result back on the main thread
+                    // העברת התוצאה חזרה ב-main thread
                     final String finalPublicUrl = publicUrl;
                     if (callback != null) {
                         callback.onSuccess(finalPublicUrl);
                     }
                 } else {
                     String errorBody = response.body() != null ? response.body().string() : "";
-                    Log.e(TAG, "Upload failed with code " + response.code() + ": " + errorBody);
+                    Log.e(TAG, "העלאה נכשלה עם קוד " + response.code() + ": " + errorBody);
                     
-                    // Try using the direct image endpoint as fallback
+                    // נסה להשתמש בנקודת קצה ישירה לתמונה כמנגנון נפילה
                     useDirectUploadFallback(context, imageUri, schoolId, username, callback, 
                                           supabaseUrl, supabaseApiKey, bucketName, filename, imageFile);
                 }
                 
-                // Clean up temporary file
+                // ניקוי קובץ זמני
                 if (imageFile != null && imageFile.exists()) {
                     if (imageFile.delete()) {
-                        Log.d(TAG, "Temp file deleted successfully");
+                        Log.d(TAG, "קובץ זמני נמחק בהצלחה");
                     } else {
-                        Log.w(TAG, "Failed to delete temp file");
+                        Log.w(TAG, "כשל במחיקת קובץ זמני");
                     }
                 }
                 
             } catch (Exception e) {
-                Log.e(TAG, "Error uploading image", e);
+                Log.e(TAG, "שגיאה בהעלאת תמונה", e);
                 if (callback != null) {
-                    callback.onError("Error uploading image: " + e.getMessage());
+                    callback.onError("שגיאה בהעלאת תמונה: " + e.getMessage());
                 }
             }
         }).start();
     }
     
     /**
-     * Check if we have permission to access the bucket
+     * בודקת אם קיימת הרשאה לגשת לדלי האחסון ב-Supabase על ידי ניסיון לרשום את הדליים הקיימים.
+     * @param supabaseUrl כתובת ה-URL של שירות Supabase.
+     * @param apiKey מפתח ה-API של Supabase.
+     * @param bucketName שם הדלי לבדיקה.
+     * @return true אם קיימת הרשאה, false אחרת.
      */
     private static boolean checkBucketPermission(String supabaseUrl, String apiKey, String bucketName) {
         try {
-            // We'll try listing buckets to check permissions
+            // ננסה לרשום דליים כדי לבדוק הרשאות
             String bucketListUrl = supabaseUrl + "/storage/v1/bucket";
             
             Request request = new Request.Builder()
@@ -177,22 +197,33 @@ public class SupabaseStorageUtil {
                 
             Response response = client.newCall(request).execute();
             if (response.isSuccessful()) {
-                Log.d(TAG, "Successfully fetched bucket list, we have permissions");
+                Log.d(TAG, "רשימת דליים נשלפה בהצלחה, יש לנו הרשאות");
                 return true;
             } else {
-                Log.e(TAG, "Failed to list buckets: " + response.code());
+                Log.e(TAG, "כשל ברישום דליים: " + response.code());
                 String errorBody = response.body() != null ? response.body().string() : "";
-                Log.e(TAG, "Error details: " + errorBody);
+                Log.e(TAG, "פרטי שגיאה: " + errorBody);
                 return false;
             }
         } catch (Exception e) {
-            Log.e(TAG, "Error checking bucket permissions", e);
+            Log.e(TAG, "שגיאה בבדיקת הרשאות דלי", e);
             return false;
         }
     }
     
     /**
-     * Fallback upload method using direct PUT request
+     * שיטת העלאה חלופית (fallback) המשתמשת בבקשת PUT ישירה ל-Supabase Storage.
+     * מופעלת אם שיטת ה-POST הראשונית נכשלת.
+     * @param context הקונטקסט של היישום.
+     * @param imageUri URI של התמונה להעלאה.
+     * @param schoolId מזהה בית הספר.
+     * @param username שם המשתמש.
+     * @param callback ממשק Callback לטיפול בתוצאה.
+     * @param supabaseUrl כתובת ה-URL של Supabase.
+     * @param supabaseApiKey מפתח ה-API של Supabase.
+     * @param bucketName שם הדלי.
+     * @param filename שם הקובץ.
+     * @param imageFile אובייקט File של התמונה.
      */
     private static void useDirectUploadFallback(
             Context context, Uri imageUri, String schoolId, String username, 
@@ -200,21 +231,21 @@ public class SupabaseStorageUtil {
             String bucketName, String filename, File imageFile) {
         
         try {
-            Log.d(TAG, "Trying fallback upload method...");
+            Log.d(TAG, "מנסה שיטת העלאה חלופית...");
             
-            // Create folder path
+            // יצירת נתיב תיקייה
             String folderPath = SCHOOLS_FOLDER + "/" + schoolId + "/" + RAKAZIM_FOLDER + "/" + username;
             String fullPath = folderPath + "/" + filename;
             
-            // Build direct Supabase Storage URL
+            // בניית URL ישיר ל-Supabase Storage
             String directUploadUrl = supabaseUrl + "/storage/v1/object/" + bucketName + "/" + fullPath;
             
-            Log.d(TAG, "Fallback upload URL: " + directUploadUrl);
+            Log.d(TAG, "URL העלאה חלופית: " + directUploadUrl);
             
-            // Create request body
+            // יצירת גוף בקשה
             RequestBody requestBody = RequestBody.create(imageFile, MediaType.parse("image/jpeg"));
             
-            // Build direct PUT request with minimal headers
+            // בניית בקשת PUT ישירה עם כותרות מינימליות
             Request request = new Request.Builder()
                     .url(directUploadUrl)
                     .addHeader("apikey", supabaseApiKey)
@@ -222,42 +253,42 @@ public class SupabaseStorageUtil {
                     .put(requestBody)
                     .build();
             
-            // Execute request
+            // ביצוע הבקשה
             Response response = client.newCall(request).execute();
             
             if (response.isSuccessful()) {
                 String responseBody = response.body() != null ? response.body().string() : "";
-                Log.d(TAG, "Fallback upload successful: " + responseBody);
+                Log.d(TAG, "העלאה חלופית מוצלחת: " + responseBody);
                 
-                // Generate public URL for the image
+                // יצירת URL ציבורי לתמונה
                 String publicUrl = supabaseUrl + "/storage/v1/object/public/" + bucketName + "/" + fullPath;
                 
-                Log.d(TAG, "Generated public URL: " + publicUrl);
+                Log.d(TAG, "נוצר URL ציבורי: " + publicUrl);
                 
                 if (callback != null) {
                     callback.onSuccess(publicUrl);
                 }
             } else {
                 String errorBody = response.body() != null ? response.body().string() : "";
-                Log.e(TAG, "Fallback upload failed with code " + response.code() + ": " + errorBody);
+                Log.e(TAG, "העלאה חלופית נכשלה עם קוד " + response.code() + ": " + errorBody);
                 
-                // Provide a user-friendly error message
+                // ספק הודעת שגיאה ידידותית למשתמש
                 String errorMessage;
                 switch (response.code()) {
                     case 401:
-                        errorMessage = "Authentication failed. Check your API key.";
+                        errorMessage = "אימות נכשל. בדוק את מפתח ה-API שלך.";
                         break;
                     case 403:
-                        errorMessage = "Permission denied. Check storage bucket policies.";
+                        errorMessage = "הרשאה נדחתה. בדוק את מדיניות דלי האחסון.";
                         break;
                     case 404:
-                        errorMessage = "Storage bucket or path not found.";
+                        errorMessage = "דלי אחסון או נתיב לא נמצא.";
                         break;
                     case 413:
-                        errorMessage = "Image file too large.";
+                        errorMessage = "קובץ התמונה גדול מדי.";
                         break;
                     default:
-                        errorMessage = "Upload failed: " + response.code() + " - " + errorBody;
+                        errorMessage = "העלאה נכשלה: " + response.code() + " - " + errorBody;
                 }
                 
                 if (callback != null) {
@@ -265,26 +296,30 @@ public class SupabaseStorageUtil {
                 }
             }
         } catch (Exception e) {
-            Log.e(TAG, "Error in fallback upload", e);
+            Log.e(TAG, "שגיאה בהעלאה חלופית", e);
             if (callback != null) {
-                callback.onError("Error uploading image: " + e.getMessage());
+                callback.onError("שגיאה בהעלאת תמונה: " + e.getMessage());
             }
         }
     }
     
     /**
-     * Convert a content URI to a File
+     * ממירה URI של תוכן לקובץ זמני.
+     * @param context הקונטקסט של היישום.
+     * @param uri ה-URI של התמונה.
+     * @return אובייקט File המייצג את הקובץ הזמני.
+     * @throws IOException אם מתרחשת שגיאת קלט/פלט במהלך ההמרה.
      */
     private static File uriToFile(Context context, Uri uri) throws IOException {
-        // Create temp file
+        // יצירת קובץ זמני
         File tempFile = File.createTempFile("upload", ".jpg", context.getCacheDir());
         
-        // Copy data from URI to file
+        // העתקת נתונים מה-URI לקובץ
         try (InputStream inputStream = context.getContentResolver().openInputStream(uri);
              OutputStream outputStream = new FileOutputStream(tempFile)) {
             
             if (inputStream == null) {
-                throw new IOException("Failed to open input stream");
+                throw new IOException("כשל בפתיחת זרם קלט");
             }
             
             byte[] buffer = new byte[4096];
@@ -299,10 +334,19 @@ public class SupabaseStorageUtil {
     }
     
     /**
-     * Callback interface for image upload operations
+     * ממשק Callback עבור פעולות העלאת תמונה.
+     * משמש להחזרת תוצאות ההעלאה (URL במקרה של הצלחה, או הודעת שגיאה במקרה של כשל).
      */
     public interface UploadCallback {
+        /**
+         * נקרא כאשר העלאת התמונה הושלמה בהצלחה.
+         * @param imageUrl ה-URL הציבורי של התמונה שהועלתה.
+         */
         void onSuccess(String imageUrl);
+        /**
+         * נקרא כאשר העלאת התמונה נכשלה.
+         * @param errorMessage הודעת שגיאה המתארת את הכשל.
+         */
         void onError(String errorMessage);
     }
 } 

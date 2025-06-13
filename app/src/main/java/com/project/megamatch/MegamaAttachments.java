@@ -66,10 +66,15 @@ import android.graphics.PorterDuff;
 import android.graphics.drawable.ColorDrawable;
 import android.view.Window;
 
+/**
+ * מחלקה זו אחראית על ניהול קבצים מצורפים (תמונות) למגמה.
+ * היא מאפשרת למשתמש להוסיף תמונות מהגלריה, לצלם תמונות חדשות, או להוסיף תמונות מ-URL,
+ * להציגן ולנהל אותן לפני שמירתן לפיירסטור ולאחסון Supabase.
+ */
 public class MegamaAttachments extends AppCompatActivity {
     private static final String TAG = "MegamaAttachments";
 
-    // UI components
+    // רכיבי ממשק משתמש
     private TextView greetingText, megamaText;
     private Button backButton;
     private MaterialButton createMegamaButton, addUrlImageButton;
@@ -80,10 +85,10 @@ public class MegamaAttachments extends AppCompatActivity {
     private RecyclerView selectedImagesRecyclerView;
     private ProgressBar progressBar;
 
-    // Firebase
+    // פיירבייס
     private FirebaseFirestore fireDB;
 
-    // Data
+    // נתונים
     private String schoolId;
     private String username;
     private String megamaName;
@@ -95,17 +100,17 @@ public class MegamaAttachments extends AppCompatActivity {
     private ArrayList<Uri> selectedImageUris = new ArrayList<>();
     private ArrayList<String> uploadedImageUrls = new ArrayList<>();
 
-    // Image handling
+    // טיפול בתמונות
     private Uri currentPhotoUri;
     private ActivityResultLauncher<Intent> pickImageLauncher;
     private ActivityResultLauncher<Uri> takePictureLauncher;
     private ImagesAdapter imagesAdapter;
     
     /**
-     * Helper class to prevent rapid multiple clicks
+     * מחלקת עזר למניעת לחיצות מרובות מהירות.
      */
     private static class DebounceClickListener implements View.OnClickListener {
-        private static final long DEBOUNCE_INTERVAL_MS = 800; // 800 milliseconds
+        private static final long DEBOUNCE_INTERVAL_MS = 800; // 800 מילישניות
         private final View.OnClickListener clickListener;
         private long lastClickTime = 0;
         
@@ -120,7 +125,7 @@ public class MegamaAttachments extends AppCompatActivity {
                 lastClickTime = currentTime;
                 clickListener.onClick(v);
             } else {
-                Log.d("DebounceClick", "Click ignored, too soon after previous click");
+                Log.d("DebounceClick", "לחיצה התעלמה, מהר מדי לאחר לחיצה קודמת");
             }
         }
     }
@@ -136,22 +141,22 @@ public class MegamaAttachments extends AppCompatActivity {
             return insets;
         });
 
-        // Initialize Firebase
+        // אתחול Firebase
         fireDB = FirebaseFirestore.getInstance();
 
-        // Initialize UI components
+        // אתחול רכיבי ממשק המשתמש
         initializeViews();
         setupImagePickers();
         setupStorageAndDatabase();
         setupListeners();
         
-        // Check if we're in update mode with existing images
+        // בדוק אם אנחנו במצב עדכון עם תמונות קיימות
         boolean isUpdate = getIntent().getBooleanExtra("isUpdate", false);
         if (isUpdate) {
-            // Set button text to update
+            // הגדר טקסט כפתור לעדכון
             createMegamaButton.setText("עדכון מגמה");
             
-            // Load existing images
+            // טען תמונות קיימות
             ArrayList<String> imageUrls = getIntent().getStringArrayListExtra("imageUrls");
             if (imageUrls != null && !imageUrls.isEmpty()) {
                 for (String imageUrl : imageUrls) {
@@ -160,13 +165,16 @@ public class MegamaAttachments extends AppCompatActivity {
                 imagesAdapter.notifyDataSetChanged();
                 updateImageCountText();
                 
-                // Automatically expand the image section when there are existing images
+                // הרחב אוטומטית את קטע התמונה כאשר יש תמונות קיימות
                 imageSection.setVisibility(View.VISIBLE);
                 expandImageSectionButton.setImageResource(android.R.drawable.arrow_up_float);
             }
         }
     }
 
+    /**
+     * מאתחל את כל רכיבי ממשק המשתמש.
+     */
     private void initializeViews() {
         greetingText = findViewById(R.id.greetingText);
         megamaText = findViewById(R.id.megamaText);
@@ -180,14 +188,17 @@ public class MegamaAttachments extends AppCompatActivity {
         selectedImagesRecyclerView = findViewById(R.id.selectedImagesRecyclerView);
         progressBar = findViewById(R.id.progressBar);
 
-        // Setup RecyclerView
+        // הגדרת RecyclerView
         selectedImagesRecyclerView.setLayoutManager(new GridLayoutManager(this, 2));
         imagesAdapter = new ImagesAdapter(selectedImageUris);
         selectedImagesRecyclerView.setAdapter(imagesAdapter);
     }
 
+    /**
+     * מגדיר את הלאנצ'רים (launchers) לבחירת תמונות מהגלריה או צילום תמונה חדשה.
+     */
     private void setupImagePickers() {
-        // Image picker launcher (Gallery)
+        // לאנצ'ר בוחר תמונות (גלריה)
         pickImageLauncher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(),
                 result -> {
                     if (result.getResultCode() == RESULT_OK && result.getData() != null) {
@@ -198,7 +209,7 @@ public class MegamaAttachments extends AppCompatActivity {
                     }
                 });
 
-        // Camera launcher
+        // לאנצ'ר מצלמה
         takePictureLauncher = registerForActivityResult(new ActivityResultContracts.TakePicture(),
                 success -> {
                     if (success && currentPhotoUri != null) {
@@ -207,8 +218,11 @@ public class MegamaAttachments extends AppCompatActivity {
                 });
     }
 
+    /**
+     * מאתחל את נתוני האחסון והמסד נתונים, כולל קבלת נתונים מהאינטנט.
+     */
     private void setupStorageAndDatabase() {
-        // Get data from intent
+        // קבלת נתונים מהאינטנט
         Bundle extras = getIntent().getExtras();
         if (extras != null) {
             schoolId = extras.getString("schoolId", "");
@@ -220,16 +234,18 @@ public class MegamaAttachments extends AppCompatActivity {
             requiredGradeAvg = extras.getInt("requiredGradeAvg", 0);
             customConditions = extras.getStringArrayList("customConditions");
 
-            Log.d(TAG, "Initial data from intent - megamaName: " + megamaName);
+            Log.d(TAG, "נתונים ראשוניים מהאינטנט - שם מגמה: " + megamaName);
             
-            // Always load rakaz details to ensure we have the correct megama name
+            // תמיד טען פרטי רכז כדי לוודא שיש לנו את שם המגמה הנכון
             loadRakazDetails();
         }
     }
 
-    // Load rakaz details to get the correct megama name
+    /**
+     * טוען פרטי רכז מפיירסטור כדי לוודא את שם המגמה הנכון.
+     */
     private void loadRakazDetails() {
-        Log.d(TAG, "Loading rakaz details for username: " + username);
+        Log.d(TAG, "טוען פרטי רכז עבור שם משתמש: " + username);
         fireDB.collection("schools").document(schoolId)
             .collection("rakazim").document(username)
             .get()
@@ -243,223 +259,158 @@ public class MegamaAttachments extends AppCompatActivity {
                         greetingText.setText("שלום " + username);
                     }
 
-                    // Get the megama name from the rakaz document - this is the source of truth
+                    // קבל את שם המגמה ממסמך הרכז - זהו מקור האמת
                     String rakazMegamaName = documentSnapshot.getString("megama");
-                    Log.d(TAG, "Rakaz document has megama name: " + rakazMegamaName);
+                    Log.d(TAG, "מסמך הרכז מכיל שם מגמה: " + rakazMegamaName);
                     
                     if (rakazMegamaName != null && !rakazMegamaName.isEmpty()) {
-                        // Use the megama name from the rakaz document
-                        megamaName = rakazMegamaName;
-                        Log.d(TAG, "Setting megamaName to: " + megamaName);
-                        
-                        // Don't set the text yet, we'll do that in updateUIWithMegamaDetails
-                        // after checking if the megama exists in Firestore
-                        
-                        // Fetch the megama details
+                        megamaName = rakazMegamaName; // Update with the actual megama name from rakaz
                         fetchMegamaDataFromFirestore(megamaName);
                     } else {
-                        megamaText.setText("יצירת מגמה חדשה!");
-                        // Continue with UI update
+                        Log.w(TAG, "מסמך הרכז אינו מכיל שם מגמה. משתמש בשם מגמה מהאינטנט: " + megamaName);
                         updateUIWithMegamaDetails();
                     }
                 } else {
-                    Log.e(TAG, "Rakaz document does not exist for username: " + username);
-                    greetingText.setText("שלום " + username);
-                    megamaText.setText("יצירת מגמה חדשה!");
+                    Log.w(TAG, "מסמך רכז לא נמצא עבור שם משתמש: " + username);
+                    // Fallback to megamaName from intent if rakaz document not found
                     updateUIWithMegamaDetails();
                 }
             })
             .addOnFailureListener(e -> {
-                Log.e(TAG, "Error loading rakaz details: " + e.getMessage());
-                greetingText.setText("שלום " + username);
-                megamaText.setText("יצירת מגמה חדשה!");
+                Log.e(TAG, "שגיאה בטעינת פרטי רכז: " + e.getMessage(), e);
+                // Fallback to megamaName from intent on failure
                 updateUIWithMegamaDetails();
             });
     }
 
+    /**
+     * שולף נתוני מגמה מפיירסטור.
+     * @param megamaName שם המגמה לשליפה.
+     */
     private void fetchMegamaDataFromFirestore(String megamaName) {
-        Log.d(TAG, "Fetching megama data for: " + megamaName);
-        
-        if (megamaName == null || megamaName.isEmpty()) {
-            Log.e(TAG, "Cannot fetch megama data: megamaName is null or empty");
-            updateUIWithMegamaDetails();
-            return;
-        }
-        
         fireDB.collection("schools").document(schoolId)
-              .collection("megamot").document(megamaName)
-              .get()
-              .addOnSuccessListener(documentSnapshot -> {
-                  if (documentSnapshot.exists()) {
-                      Log.d(TAG, "Successfully fetched megama document");
-                      
-                      // Get data from Firestore document
-                      if (megamaDescription.isEmpty()) {
-                          String description = documentSnapshot.getString("description");
-                          if (description != null) {
-                              megamaDescription = description;
-                              Log.d(TAG, "Updated megamaDescription: " + megamaDescription);
-                          }
-                      }
-                      
-                      // Get requires exam value
-                      Boolean examValue = documentSnapshot.getBoolean("requiresExam");
-                      if (examValue != null) {
-                          requiresExam = examValue;
-                          Log.d(TAG, "Updated requiresExam: " + requiresExam);
-                      }
-                      
-                      // Get requires grade avg value
-                      Boolean gradeAvgValue = documentSnapshot.getBoolean("requiresGradeAvg");
-                      if (gradeAvgValue != null) {
-                          requiresGradeAvg = gradeAvgValue;
-                          Log.d(TAG, "Updated requiresGradeAvg: " + requiresGradeAvg);
-                      }
-                      
-                      if (requiredGradeAvg == 0 && requiresGradeAvg) {
-                          Long requiredGradeAvgLong = documentSnapshot.getLong("requiredGradeAvg");
-                          requiredGradeAvg = requiredGradeAvgLong != null ? requiredGradeAvgLong.intValue() : 0;
-                          Log.d(TAG, "Updated requiredGradeAvg: " + requiredGradeAvg);
-                      }
-                      
-                      if (customConditions == null || customConditions.isEmpty()) {
-                          customConditions = (ArrayList<String>) documentSnapshot.get("customConditions");
-                          Log.d(TAG, "Updated customConditions count: " + 
-                                (customConditions != null ? customConditions.size() : 0));
-                      }
-                      
-                      // Now get image URLs if they aren't already set
-                      ArrayList<String> fetchedImageUrls = (ArrayList<String>) documentSnapshot.get("imageUrls");
-                      if (fetchedImageUrls != null && !fetchedImageUrls.isEmpty() && uploadedImageUrls.isEmpty()) {
-                          uploadedImageUrls.addAll(fetchedImageUrls);
-                          imagesAdapter.notifyDataSetChanged();
-                          updateImageCountText();
-                          Log.d(TAG, "Updated uploadedImageUrls count: " + uploadedImageUrls.size());
-                      }
-                  } else {
-                      Log.w(TAG, "Megama document does not exist for name: " + megamaName);
-                  }
-                  
-                  // Update UI after fetching data
-                  updateUIWithMegamaDetails();
-              })
-              .addOnFailureListener(e -> {
-                  Log.e(TAG, "Error fetching megama data: " + e.getMessage());
-                  // Continue with UI update even if fetch fails
-                  updateUIWithMegamaDetails();
-              });
+                .collection("megamot").document(megamaName)
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        megamaDescription = documentSnapshot.getString("description");
+                        requiresExam = Boolean.TRUE.equals(documentSnapshot.getBoolean("requiresExam"));
+                        requiresGradeAvg = Boolean.TRUE.equals(documentSnapshot.getBoolean("requiresGradeAvg"));
+                        if (documentSnapshot.contains("requiredGradeAvg")) {
+                            Long avg = documentSnapshot.getLong("requiredGradeAvg");
+                            requiredGradeAvg = (avg != null) ? avg.intValue() : 0;
+                        }
+                        customConditions = (ArrayList<String>) documentSnapshot.get("customConditions");
+                        uploadedImageUrls = (ArrayList<String>) documentSnapshot.get("imageUrls");
+                        if (uploadedImageUrls == null) {
+                            uploadedImageUrls = new ArrayList<>();
+                        }
+                        
+                        // Convert uploaded URLs to Uris for the adapter for display
+                        selectedImageUris.clear();
+                        for (String url : uploadedImageUrls) {
+                            selectedImageUris.add(Uri.parse(url));
+                        }
+                        imagesAdapter.notifyDataSetChanged();
+                        updateImageCountText();
+
+                        // Automatically expand image section if there are existing images
+                        if (!uploadedImageUrls.isEmpty()) {
+                            imageSection.setVisibility(View.VISIBLE);
+                            expandImageSectionButton.setImageResource(android.R.drawable.arrow_up_float);
+                        }
+
+                    } else {
+                        Log.d(TAG, "מסמך מגמה לא נמצא בפיירסטור: " + megamaName);
+                    }
+                    updateUIWithMegamaDetails();
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "שגיאה בשליפת נתוני מגמה: " + e.getMessage(), e);
+                    Toast.makeText(this, "שגיאה בטעינת פרטי מגמה: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    updateUIWithMegamaDetails();
+                });
     }
 
+    /**
+     * מעדכן את ממשק המשתמש עם פרטי המגמה הנוכחיים.
+     */
     private void updateUIWithMegamaDetails() {
-        // Update the UI with the current megama details
-        Log.d(TAG, "Updating UI with current megama details");
+        megamaText.setText("אתה עומד ליצור את מגמת: " + megamaName);
         
-        // We need to check if the megama document actually exists in Firestore
-        if (megamaName != null && !megamaName.isEmpty()) {
-            fireDB.collection("schools").document(schoolId)
-                  .collection("megamot").document(megamaName)
-                  .get()
-                  .addOnSuccessListener(documentSnapshot -> {
-                      if (documentSnapshot.exists()) {
-                          // If megama exists, set to "update"
-                          createMegamaButton.setText("עדכון מגמה");
-                          megamaText.setText("עדכון מגמת " + megamaName);
-                      } else {
-                          // If megama doesn't exist yet, set to "create"
-                          createMegamaButton.setText("יצירת מגמה");
-                          megamaText.setText("יצירת מגמת " + megamaName);
-                      }
-                  })
-                  .addOnFailureListener(e -> {
-                      // On failure, default to create
-                      createMegamaButton.setText("יצירת מגמה");
-                      megamaText.setText("יצירת מגמת " + megamaName);
-                  });
-        } else {
-            createMegamaButton.setText("יצירת מגמה");
-            megamaText.setText("יצירת מגמה חדשה!");
-        }
-        
-        // If we have images, expand the image section
-        if (!uploadedImageUrls.isEmpty()) {
-            imageSection.setVisibility(View.VISIBLE);
-            expandImageSectionButton.setImageResource(android.R.drawable.arrow_up_float);
-            updateImageCountText();
+        // If in create mode, ensure greeting text is set
+        if (greetingText.getText().equals("טוען...")) {
+            String firstName = getIntent().getStringExtra("firstName");
+            if (firstName != null && !firstName.isEmpty()) {
+                greetingText.setText("שלום " + firstName);
+            } else {
+                greetingText.setText("שלום " + username);
+            }
         }
     }
 
+    /**
+     * מגדיר את כל המאזינים לרכיבי ממשק המשתמש.
+     */
     private void setupListeners() {
-        // Back button
-        backButton.setOnClickListener(v -> {
-            goBackToMegamaCreate();
-        });
+        backButton.setOnClickListener(new DebounceClickListener(v -> goBackToMegamaCreate()));
+        createMegamaButton.setOnClickListener(new DebounceClickListener(v -> createNewMegama()));
 
-        // Expand/collapse image section
-        expandImageSectionButton.setOnClickListener(v -> {
-            if (imageSection.getVisibility() == View.VISIBLE) {
-                imageSection.setVisibility(View.GONE);
-                expandImageSectionButton.setImageResource(android.R.drawable.arrow_down_float);
-            } else {
+        expandImageSectionButton.setOnClickListener(new DebounceClickListener(v -> {
+            if (imageSection.getVisibility() == View.GONE) {
                 imageSection.setVisibility(View.VISIBLE);
                 expandImageSectionButton.setImageResource(android.R.drawable.arrow_up_float);
+            } else {
+                imageSection.setVisibility(View.GONE);
+                expandImageSectionButton.setImageResource(android.R.drawable.arrow_down_float);
             }
-        });
+        }));
 
-        // Add image button (shows bottom sheet dialog)
-        addImageButton.setOnClickListener(v -> {
-            showImageSourceOptions();
-        });
+        addImageButton.setOnClickListener(new DebounceClickListener(v -> showImageSourceOptions()));
 
-        // Add URL image button
-        addUrlImageButton.setOnClickListener(v -> {
+        addUrlImageButton.setOnClickListener(new DebounceClickListener(v -> {
             String imageUrl = imageUrlInput.getText().toString().trim();
             if (!imageUrl.isEmpty()) {
                 if (isValidImageUrl(imageUrl)) {
-                    // Show loading indicator
-                    Toast.makeText(this, "מוסיף תמונה מ-URL...", Toast.LENGTH_SHORT).show();
-                    
-                    // For URLs, we'll just add them directly to our list
-                    // You might want to download and reupload them for consistency
-                    uploadedImageUrls.add(imageUrl);
-                    imagesAdapter.notifyDataSetChanged();
-                    updateImageCountText();
-                    
-                    // Clear input
-                    imageUrlInput.setText("");
-                    Toast.makeText(this, "התמונה נוספה בהצלחה", Toast.LENGTH_SHORT).show();
+                    Uri imageUri = Uri.parse(imageUrl);
+                    addImageToSelection(imageUri);
+                    imageUrlInput.setText(""); // Clear input
                 } else {
-                    Toast.makeText(this, "נא להזין כתובת תקינה של תמונה", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, "כתובת URL לא חוקית לתמונה", Toast.LENGTH_SHORT).show();
                 }
             } else {
-                Toast.makeText(this, "נא להזין כתובת לתמונה", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "נא להזין כתובת URL של תמונה", Toast.LENGTH_SHORT).show();
             }
-        });
-
-        // Create megama button with debounce to prevent multiple clicks
-        createMegamaButton.setOnClickListener(new DebounceClickListener(v -> createNewMegama()));
+        }));
     }
 
+    /**
+     * מציג דיאלוג לבחירת מקור תמונה (מצלמה או גלריה).
+     */
     private void showImageSourceOptions() {
-        BottomSheetDialog dialog = new BottomSheetDialog(this);
-        View bottomSheetView = getLayoutInflater().inflate(R.layout.bottom_sheet_image_picker, null);
-        dialog.setContentView(bottomSheetView);
+        BottomSheetDialog bottomSheetDialog = new BottomSheetDialog(this);
+        View view = LayoutInflater.from(this).inflate(R.layout.image_source_bottom_sheet, null);
+        bottomSheetDialog.setContentView(view);
 
-        View cameraOption = bottomSheetView.findViewById(R.id.camera_option);
-        View galleryOption = bottomSheetView.findViewById(R.id.gallery_option);
+        MaterialButton btnCamera = view.findViewById(R.id.btnCamera);
+        MaterialButton btnGallery = view.findViewById(R.id.btnGallery);
 
-        cameraOption.setOnClickListener(v -> {
-            dialog.dismiss();
+        btnCamera.setOnClickListener(v -> {
             openCamera();
+            bottomSheetDialog.dismiss();
         });
 
-        galleryOption.setOnClickListener(v -> {
-            dialog.dismiss();
+        btnGallery.setOnClickListener(v -> {
             openGallery();
+            bottomSheetDialog.dismiss();
         });
 
-        dialog.show();
+        bottomSheetDialog.show();
     }
 
+    /**
+     * מפעיל את אפליקציית המצלמה לצילום תמונה.
+     */
     private void openCamera() {
         Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
         if (takePictureIntent.resolveActivity(getPackageManager()) != null) {
@@ -467,11 +418,10 @@ public class MegamaAttachments extends AppCompatActivity {
             try {
                 photoFile = createImageFile();
             } catch (IOException ex) {
-                Log.e(TAG, "Error creating image file", ex);
+                Log.e(TAG, "שגיאה ביצירת קובץ תמונה", ex);
                 Toast.makeText(this, "שגיאה ביצירת קובץ תמונה", Toast.LENGTH_SHORT).show();
                 return;
             }
-
             if (photoFile != null) {
                 currentPhotoUri = FileProvider.getUriForFile(this,
                         "com.project.megamatch.fileprovider",
@@ -479,365 +429,299 @@ public class MegamaAttachments extends AppCompatActivity {
                 takePictureLauncher.launch(currentPhotoUri);
             }
         } else {
-            Toast.makeText(this, "אין אפליקציית מצלמה זמינה", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "אין אפליקציית מצלמה במכשיר זה", Toast.LENGTH_SHORT).show();
         }
     }
 
+    /**
+     * יוצר קובץ תמונה זמני עבור תמונה שתצולם.
+     * @return קובץ תמונה.
+     * @throws IOException אם מתרחשת שגיאת קלט/פלט.
+     */
     private File createImageFile() throws IOException {
-        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(new Date());
+        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date());
         String imageFileName = "JPEG_" + timeStamp + "_";
         File storageDir = getExternalFilesDir(Environment.DIRECTORY_PICTURES);
-        return File.createTempFile(
-                imageFileName,
-                ".jpg",
-                storageDir
+        File image = File.createTempFile(
+                imageFileName,  /* prefix */
+                ".jpg",         /* suffix */
+                storageDir      /* directory */
         );
+        return image;
     }
 
-    private void openGallery() {
-        Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
-        pickImageLauncher.launch(intent);
-    }
-
-    private void addImageToSelection(Uri imageUri) {
-        selectedImageUris.add(imageUri);
-        imagesAdapter.notifyItemInserted(selectedImageUris.size() - 1);
-        updateImageCountText();
-        
-        // Upload image to Supabase storage
-        uploadImageToSupabase(imageUri);
-    }
-    
     /**
-     * Upload an image to Supabase storage
-     * @param imageUri The URI of the image to upload
+     * פותח את גלריית התמונות לבחירת תמונה.
+     */
+    private void openGallery() {
+        Intent pickPhoto = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+        pickImageLauncher.launch(pickPhoto);
+    }
+
+    /**
+     * מוסיף URI של תמונה לרשימת התמונות שנבחרו ומעדכן את הממשק.
+     * @param imageUri URI של התמונה להוספה.
+     */
+    private void addImageToSelection(Uri imageUri) {
+        if (!selectedImageUris.contains(imageUri)) {
+            selectedImageUris.add(imageUri);
+            imagesAdapter.notifyDataSetChanged();
+            updateImageCountText();
+        } else {
+            Toast.makeText(this, "תמונה זו כבר נבחרה", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    /**
+     * מעלה את התמונות שנבחרו לאחסון Supabase.
+     * לאחר העלאה מוצלחת, יוצר או מעדכן את מסמך המגמה בפיירסטור.
+     * @param imageUri URI של התמונה להעלאה.
      */
     private void uploadImageToSupabase(Uri imageUri) {
-        if (imageUri == null) {
-            Log.e(TAG, "Cannot upload null image URI");
-            return;
-        }
-        
-        // Show loading indicator
-        Toast.makeText(this, "מעלה תמונה...", Toast.LENGTH_SHORT).show();
-        
-        // Upload image to Supabase using our utility
-        SupabaseStorageUtil.uploadImage(
-                this, 
-                imageUri, 
-                schoolId, 
-                username, 
-                new SupabaseStorageUtil.UploadCallback() {
+        progressBar.setVisibility(View.VISIBLE);
+
+        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date());
+        String fileName = "megama_" + megamaName + "_" + timeStamp + ".jpg";
+        String storagePath = "schools/" + schoolId + "/megamot_attachments/" + fileName;
+
+        SupabaseStorageUtil.getInstance().uploadFile(
+                this,
+                imageUri,
+                storagePath,
+                new SupabaseStorageUtil.FileUploadListener() {
                     @Override
                     public void onSuccess(String imageUrl) {
-                        // Run on UI thread
-                        runOnUiThread(() -> {
-                            Log.d(TAG, "Image uploaded successfully: " + imageUrl);
-                            // Add the URL to our uploadedImageUrls list
-                            uploadedImageUrls.add(imageUrl);
-                            // Update the UI
-                            imagesAdapter.notifyDataSetChanged();
-                            updateImageCountText();
-                            Toast.makeText(MegamaAttachments.this, "התמונה הועלתה בהצלחה", Toast.LENGTH_SHORT).show();
-                        });
+                        Log.d(TAG, "תמונה הועלתה בהצלחה: " + imageUrl);
+                        uploadedImageUrls.add(imageUrl);
+                        // If all images are uploaded, create/update Firestore document
+                        if (uploadedImageUrls.size() == selectedImageUris.size()) {
+                            createNewMegamaDocumentInFirestore();
+                        }
                     }
-                    
+
                     @Override
                     public void onError(String errorMessage) {
-                        // Run on UI thread
-                        runOnUiThread(() -> {
-                            Log.e(TAG, "Error uploading image: " + errorMessage);
-                            Toast.makeText(MegamaAttachments.this, 
-                                    "שגיאה בהעלאת תמונה: " + errorMessage, 
-                                    Toast.LENGTH_SHORT).show();
-                        });
+                        Log.e(TAG, "שגיאה בהעלאת תמונה: " + errorMessage);
+                        progressBar.setVisibility(View.GONE);
+                        Toast.makeText(MegamaAttachments.this, "שגיאה בהעלאת תמונה: " + errorMessage, Toast.LENGTH_LONG).show();
                     }
                 });
     }
 
+    /**
+     * בודק אם כתובת URL של תמונה תקינה.
+     * @param url כתובת ה-URL לבדיקה.
+     * @return true אם ה-URL תקין, false אחרת.
+     */
     private boolean isValidImageUrl(String url) {
-        // Basic validation for image URLs
-        return url.matches(".*\\.(jpeg|jpg|png|gif|bmp)$") || 
-               url.startsWith("http") || 
-               url.startsWith("https");
+        return url.startsWith("http://") || url.startsWith("https://");
     }
 
+    /**
+     * חוזר למסך יצירת המגמה (MegamaCreate).
+     */
     private void goBackToMegamaCreate() {
-        Intent intent = new Intent();
-        intent.putExtra("shouldPreserveData", true);
-        setResult(RESULT_OK, intent);
+        Intent resultIntent = new Intent();
+        resultIntent.putExtra("megamaName", megamaName);
+        resultIntent.putExtra("megamaDescription", megamaDescription);
+        resultIntent.putExtra("requiresExam", requiresExam);
+        resultIntent.putExtra("requiresGradeAvg", requiresGradeAvg);
+        resultIntent.putExtra("requiredGradeAvg", requiredGradeAvg);
+        resultIntent.putStringArrayListExtra("customConditions", customConditions);
+        setResult(RESULT_CANCELED, resultIntent); // Indicate cancellation if not explicitly created
         finish();
     }
 
-    private void createNewMegama() {
-        // No need to validate image URLs anymore since they're optional
-        
-        // Check for required fields
-        if (megamaName == null || megamaName.isEmpty()) {
-            Log.e(TAG, "Error: megamaName is null or empty in createNewMegama");
-            Toast.makeText(this, "שגיאה: שם מגמה חסר", Toast.LENGTH_SHORT).show();
-            return;
-        }
-        
-        Log.d(TAG, "Creating/updating megama with name: " + megamaName);
-        
-        if (megamaDescription == null || megamaDescription.isEmpty()) {
-            Toast.makeText(this, "שגיאה: תיאור מגמה חסר", Toast.LENGTH_SHORT).show();
-            return;
-        }
-        
-        if (username == null || username.isEmpty() || schoolId == null || schoolId.isEmpty()) {
-            Toast.makeText(this, "שגיאה: פרטי משתמש או בית ספר חסרים", Toast.LENGTH_SHORT).show();
-            return;
-        }
-        
-        // שינוי כפתור והוספת לואדר
-        createMegamaButton.setEnabled(false);
-        createMegamaButton.setText("");
-        progressBar.setVisibility(View.VISIBLE);
-        
-        // Hide the icon when loading
-        createMegamaButton.setIcon(null);
-
-        // Setup timeout handler - 10 seconds max
-        new Handler(Looper.getMainLooper()).postDelayed(() -> {
-            if (progressBar.getVisibility() == View.VISIBLE) {
-                // If still loading after timeout, reset the UI
-                Log.e(TAG, "Operation timed out after 10 seconds");
-                progressBar.setVisibility(View.GONE);
-                createMegamaButton.setText("עדכון מגמה");
-                createMegamaButton.setEnabled(true);
-                createMegamaButton.setIcon(getResources().getDrawable(android.R.drawable.ic_menu_save));
-                Toast.makeText(MegamaAttachments.this, "פעולה נכשלה - נסה שוב", Toast.LENGTH_SHORT).show();
-            }
-        }, 10000); // 10 seconds timeout
-        
-        // Check if the megama already exists in Firestore before proceeding
-        Log.d(TAG, "Processing megama with name: " + megamaName);
-        
-        // Create Megama object with all parameters
-        Megama megama = new Megama();
-        megama.setName(megamaName);
-        megama.setDescription(megamaDescription);
-        megama.setImageUrls(uploadedImageUrls);
-        megama.setRequiresExam(requiresExam);
-        megama.setRequiresGradeAvg(requiresGradeAvg);
-        megama.setRequiredGradeAvg(requiredGradeAvg);
-        megama.setCustomConditions(customConditions);
-        megama.setRakazUsername(username); // Set the rakaz username
-        
-        // Log the megama object for debugging
-        Log.d(TAG, "Creating/updating megama with name: " + megama.getName());
-        Log.d(TAG, "Megama description: " + megama.getDescription());
-        Log.d(TAG, "Megama rakaz username: " + megama.getRakazUsername());
-        Log.d(TAG, "Megama requires exam: " + megama.isRequiresExam());
-        Log.d(TAG, "Megama requires grade avg: " + megama.isRequiresGradeAvg());
-        Log.d(TAG, "Megama required grade avg: " + megama.getRequiredGradeAvg());
-        Log.d(TAG, "Megama custom conditions count: " + (megama.getCustomConditions() != null ? megama.getCustomConditions().size() : 0));
-        Log.d(TAG, "Megama image URLs count: " + (megama.getImageUrls() != null ? megama.getImageUrls().size() : 0));
-
-        // Save to Firestore
-        CollectionReference megamotRef = fireDB.collection("schools").document(schoolId)
-                                              .collection("megamot");
-        
-        // Directly update the megama document
-        Log.d(TAG, "Updating megama document at path: schools/" + schoolId + "/megamot/" + megamaName);
-        megamotRef.document(megamaName)
-            .set(megama)
-            .addOnSuccessListener(aVoid -> {
-                Log.d(TAG, "Successfully updated megama document");
-                // No need to update rakaz-megama reference since it should already be set
-                finishMegamaCreation();
-            })
-            .addOnFailureListener(e -> {
-                Log.e(TAG, "Failed to update megama document: " + e.getMessage());
-                progressBar.setVisibility(View.GONE);
-                createMegamaButton.setText("עדכן מגמה");
-                createMegamaButton.setEnabled(true);
-                createMegamaButton.setIcon(getResources().getDrawable(android.R.drawable.ic_menu_save));
-                Toast.makeText(MegamaAttachments.this, "שגיאה בעדכון מגמה: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-            });
-    }
-    
-    // New method to finalize the process and return to rakazPage
-    private void finishMegamaCreation() {
-        Log.d(TAG, "Finishing megama creation/update process");
-        progressBar.setVisibility(View.GONE);
-        
-        // Determine if this is a new megama creation or an update based on button text
-        boolean isUpdate = createMegamaButton.getText().toString().contains("עדכון");
-        String successMessage = isUpdate ? "מגמה עודכנה בהצלחה!" : "מגמה נוספה בהצלחה!";
-        
-        // Create custom styled dialog
-        showCustomSuccessDialog(successMessage);
-    }
-    
     /**
-     * Show a custom styled success dialog
-     * @param message The success message to display
+     * יוצר מגמה חדשה (או מעדכן קיימת) בפיירסטור.
+     * מטפל בהעלאת תמונות לפני יצירת/עדכון המסמך.
      */
-    private void showCustomSuccessDialog(String message) {
-        // Create a dialog
-        Dialog customDialog = new Dialog(this);
-        customDialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
-        customDialog.setCancelable(false);
-        
-        // Set the custom layout
-        customDialog.setContentView(R.layout.megama_success_dialog);
-        
-        // Get window to set layout parameters
-        Window window = customDialog.getWindow();
-        if (window != null) {
-            window.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-            window.setBackgroundDrawable(new ColorDrawable(android.graphics.Color.TRANSPARENT));
-            
-            // Add custom animation
-            window.setWindowAnimations(R.style.DialogAnimation);
+    private void createNewMegama() {
+        if (megamaName == null || megamaName.isEmpty()) {
+            Toast.makeText(this, "שם מגמה חסר. אנא חזור לדף הקודם.", Toast.LENGTH_SHORT).show();
+            return;
         }
-        
-        // Set the success message
-        TextView messageView = customDialog.findViewById(R.id.dialogMessage);
-        if (messageView != null) {
-            messageView.setText(message);
-        }
-        
-        // Set the success icon based on message (different for update vs create)
-        ImageView iconView = customDialog.findViewById(R.id.successIcon);
-        if (iconView != null) {
-            // Set background oval shape with green color
-            iconView.setBackgroundResource(R.drawable.circle_background);
-            
-            if (message.contains("עודכנה")) {
-                // Use edit icon for updates
-                iconView.setImageResource(R.drawable.ic_edit);
-            } else {
-                // Use checkmark icon for new creations
-                iconView.setImageResource(R.drawable.ic_checkmark);
-            }
-            // No need to tint as we'll color the background instead
-        }
-        
-        // Set up the close button
-        MaterialButton closeButton = customDialog.findViewById(R.id.closeButton);
-        if (closeButton != null) {
-            closeButton.setOnClickListener(v -> {
-                customDialog.dismiss();
-                // Navigate back to rakaz page
-                Intent intent = new Intent(MegamaAttachments.this, rakazPage.class);
-                intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
-                startActivity(intent);
-                finish();
-            });
-        }
-        
-        // Show the dialog
-        customDialog.show();
-    }
 
-    private void updateImageCountText() {
-        int totalImages = selectedImageUris.size() + uploadedImageUrls.size();
-        String imageCountText = "תמונות נבחרות: " + totalImages;
-        
-        // Find the TextView by its text content since we don't have a direct reference
-        for (int i = 0; i < ((ViewGroup) imageSection).getChildCount(); i++) {
-            View child = ((ViewGroup) imageSection).getChildAt(i);
-            if (child instanceof TextView) {
-                TextView textView = (TextView) child;
-                if (textView.getText().toString().startsWith("תמונות נבחרות")) {
-                    textView.setText(imageCountText);
-                    break;
+        progressBar.setVisibility(View.VISIBLE);
+        createMegamaButton.setEnabled(false);
+
+        // Clear previous uploaded URLs to avoid duplicates if re-uploading
+        uploadedImageUrls.clear();
+
+        if (selectedImageUris.isEmpty()) {
+            // No images to upload, proceed directly to Firestore
+            createNewMegamaDocumentInFirestore();
+        } else {
+            // Upload all selected images first
+            for (Uri uri : selectedImageUris) {
+                // Check if it's already an uploaded URL (from update mode)
+                if (uri.toString().startsWith("http")) {
+                    uploadedImageUrls.add(uri.toString());
+                    // If all images are pre-uploaded URLs, create/update Firestore document
+                    if (uploadedImageUrls.size() == selectedImageUris.size()) {
+                        createNewMegamaDocumentInFirestore();
+                    }
+                } else {
+                    uploadImageToSupabase(uri);
                 }
             }
         }
-        
-        // Show empty state message if no images
-        if (totalImages == 0) {
-            // We could add an empty state view here if needed
+    }
+
+    /**
+     * יוצר או מעדכן את מסמך המגמה בפיירסטור עם כל הנתונים, כולל כתובות ה-URL של התמונות שהועלו.
+     */
+    private void createNewMegamaDocumentInFirestore() {
+        Map<String, Object> megamaData = new HashMap<>();
+        megamaData.put("name", megamaName);
+        megamaData.put("description", megamaDescription);
+        megamaData.put("rakazUsername", username);
+        megamaData.put("requiresExam", requiresExam);
+        megamaData.put("requiresGradeAvg", requiresGradeAvg);
+        megamaData.put("requiredGradeAvg", requiredGradeAvg);
+        megamaData.put("customConditions", customConditions);
+        megamaData.put("imageUrls", uploadedImageUrls); // Save uploaded image URLs
+
+        fireDB.collection("schools").document(schoolId)
+                .collection("megamot").document(megamaName)
+                .set(megamaData)
+                .addOnSuccessListener(aVoid -> {
+                    Log.d(TAG, "מסמך מגמה נוצר/עודכן בהצלחה: " + megamaName);
+                    // Update rakaz document with megama name
+                    fireDB.collection("schools").document(schoolId)
+                            .collection("rakazim").document(username)
+                            .update("megama", megamaName)
+                            .addOnSuccessListener(aVoid2 -> {
+                                Log.d(TAG, "שם מגמה עודכן במסמך הרכז");
+                                finishMegamaCreation();
+                            })
+                            .addOnFailureListener(e -> {
+                                Log.e(TAG, "שגיאה בעדכון שם מגמה במסמך הרכז", e);
+                                Toast.makeText(MegamaAttachments.this, "שגיאה בעדכון מסמך רכז: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                                finishMegamaCreation(); // Still finish even if rakaz update fails
+                            });
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "שגיאה ביצירת/עדכון מסמך מגמה: " + e.getMessage(), e);
+                    progressBar.setVisibility(View.GONE);
+                    createMegamaButton.setEnabled(true);
+                    Toast.makeText(MegamaAttachments.this, "שגיאה ביצירת/עדכון מגמה: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                });
+    }
+
+    /**
+     * מסיים את תהליך יצירת/עדכון המגמה ומציג דיאלוג הצלחה.
+     */
+    private void finishMegamaCreation() {
+        progressBar.setVisibility(View.GONE);
+        createMegamaButton.setEnabled(true);
+        showCustomSuccessDialog("המגמה " + megamaName + " נוצרה/עודכנה בהצלחה!");
+    }
+
+    /**
+     * מציג דיאלוג הצלחה מותאם אישית.
+     * @param message הודעת ההצלחה להצגה.
+     */
+    private void showCustomSuccessDialog(String message) {
+        final Dialog dialog = new Dialog(this);
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        dialog.setCancelable(false);
+        dialog.setContentView(R.layout.megama_success_dialog);
+        dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+
+        TextView dialogTitle = dialog.findViewById(R.id.dialogTitle);
+        TextView dialogMessage = dialog.findViewById(R.id.dialogMessage);
+        Button dialogButton = dialog.findViewById(R.id.dialogButton);
+
+        dialogTitle.setText("הצלחה!");
+        dialogMessage.setText(message);
+
+        dialogButton.setOnClickListener(v -> {
+            dialog.dismiss();
+            setResult(RESULT_OK);
+            finish();
+        });
+        dialog.show();
+    }
+
+    /**
+     * מעדכן את טקסט ספירת התמונות.
+     */
+    private void updateImageCountText() {
+        if (selectedImageUris.isEmpty()) {
+            greetingText.setText("העלה קבצים מצורפים");
+        } else {
+            greetingText.setText("קבצים מצורפים (" + selectedImageUris.size() + ")");
         }
     }
 
-    // Adapter for the images RecyclerView
+    /**
+     * מתאם (Adapter) עבור ה-RecyclerView המציג את התמונות שנבחרו/הועלו.
+     */
     private class ImagesAdapter extends RecyclerView.Adapter<ImagesAdapter.ImageViewHolder> {
         private final List<Uri> imageUris;
         private final List<String> uploadedUrls;
 
         public ImagesAdapter(List<Uri> imageUris) {
             this.imageUris = imageUris;
-            this.uploadedUrls = uploadedImageUrls; // Reference the class member
+            this.uploadedUrls = MegamaAttachments.this.uploadedImageUrls; // Reference parent's uploaded list
         }
 
         @NonNull
         @Override
         public ImageViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-            View view = LayoutInflater.from(parent.getContext())
-                    .inflate(R.layout.item_selected_image, parent, false);
+            View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_selected_image, parent, false);
             return new ImageViewHolder(view);
         }
 
         @Override
         public void onBindViewHolder(@NonNull ImageViewHolder holder, int position) {
-            if (position < imageUris.size()) {
-                // This is a local Uri from selectedImageUris
-                Uri imageUri = imageUris.get(position);
-                
-                // Load image using Glide
-                Glide.with(MegamaAttachments.this)
-                        .load(imageUri)
-                        .diskCacheStrategy(DiskCacheStrategy.ALL)
-                        .centerCrop()
-                        .into(holder.imageView);
-                
-                // Remove image button
-                holder.removeButton.setOnClickListener(v -> {
-                    int adapterPosition = holder.getAdapterPosition();
-                    if (adapterPosition != RecyclerView.NO_POSITION && adapterPosition < imageUris.size()) {
-                        imageUris.remove(adapterPosition);
-                        notifyItemRemoved(adapterPosition);
-                        updateImageCountText();
-                    }
-                });
-            } else {
-                // This is a remote URL from uploadedImageUrls
-                int uploadedPosition = position - imageUris.size();
-                if (uploadedPosition < uploadedUrls.size()) {
-                    String imageUrl = uploadedUrls.get(uploadedPosition);
-                    
-                    // Load image using Glide
-                    Glide.with(MegamaAttachments.this)
-                            .load(imageUrl)
-                            .diskCacheStrategy(DiskCacheStrategy.ALL)
-                            .centerCrop()
-                            .into(holder.imageView);
-                    
-                    // Remove image button
-                    holder.removeButton.setOnClickListener(v -> {
-                        int adapterPosition = holder.getAdapterPosition();
-                        if (adapterPosition != RecyclerView.NO_POSITION) {
-                            int uploadedIndex = adapterPosition - imageUris.size();
-                            if (uploadedIndex >= 0 && uploadedIndex < uploadedUrls.size()) {
-                                uploadedUrls.remove(uploadedIndex);
-                                notifyItemRemoved(adapterPosition);
-                                updateImageCountText();
+            Uri currentUri = imageUris.get(position);
+            Glide.with(holder.imageView.getContext())
+                    .load(currentUri)
+                    .diskCacheStrategy(DiskCacheStrategy.ALL)
+                    .centerCrop()
+                    .into(holder.imageView);
+
+            holder.removeButton.setOnClickListener(v -> {
+                // Show confirmation dialog
+                new AlertDialog.Builder(MegamaAttachments.this)
+                        .setTitle("מחיקת תמונה")
+                        .setMessage("האם אתה בטוח שברצונך למחוק תמונה זו?")
+                        .setPositiveButton("מחק", (dialog, which) -> {
+                            // Remove from selected list
+                            imageUris.remove(position);
+                            notifyItemRemoved(position);
+                            notifyItemRangeChanged(position, imageUris.size());
+
+                            // Remove from uploaded URLs if it exists there
+                            if (uploadedUrls.contains(currentUri.toString())) {
+                                uploadedUrls.remove(currentUri.toString());
                             }
-                        }
-                    });
-                }
-            }
+                            updateImageCountText();
+                            Toast.makeText(MegamaAttachments.this, "תמונה נמחקה", Toast.LENGTH_SHORT).show();
+                        })
+                        .setNegativeButton("בטל", null)
+                        .show();
+            });
         }
 
         @Override
         public int getItemCount() {
-            return imageUris.size() + uploadedUrls.size();
+            return imageUris.size();
         }
 
+        /**
+         * מחזיק תצוגה (ViewHolder) עבור פריטי תמונה ב-RecyclerView.
+         */
         class ImageViewHolder extends RecyclerView.ViewHolder {
             ImageView imageView;
             ImageButton removeButton;
 
             public ImageViewHolder(@NonNull View itemView) {
                 super(itemView);
-                imageView = itemView.findViewById(R.id.selected_image);
-                removeButton = itemView.findViewById(R.id.remove_image_button);
+                imageView = itemView.findViewById(R.id.imageView);
+                removeButton = itemView.findViewById(R.id.removeButton);
             }
         }
     }

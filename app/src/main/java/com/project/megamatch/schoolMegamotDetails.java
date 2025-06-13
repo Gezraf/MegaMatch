@@ -16,6 +16,10 @@ import android.widget.Button;
 import android.widget.TextView;
 import android.util.Log;
 
+/**
+ * פעילות להצגת פרטי מגמות של בית ספר
+ * מסך זה מציג את כל המגמות של בית הספר הנבחר
+ */
 public class schoolMegamotDetails extends AppCompatActivity {
 
     private TextView schoolTitleText;
@@ -25,6 +29,10 @@ public class schoolMegamotDetails extends AppCompatActivity {
     private String schoolId;
     private static final String TAG = "SchoolMegamotDetails";
 
+    /**
+     * נקרא בעת יצירת הפעילות
+     * מאתחל את הממשק, טוען נתוני בית הספר ומגדיר את הרכיבים
+     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -78,20 +86,26 @@ public class schoolMegamotDetails extends AppCompatActivity {
         loadSchoolMegamot();
     }
     
-    // טעינת מגמות מהשרת
+    /**
+     * טוען את כל המגמות של בית הספר מהשרת
+     */
     private void loadSchoolMegamot() {
         // TODO: טעינת נתוני מגמות מפיירבייס
         Log.d(TAG, "Loading all megamot for school: " + schoolId);
     }
     
-    // חזרה למסך בחירת בית ספר
+    /**
+     * חזרה למסך בחירת בית ספר
+     */
     private void goBackToSchoolSelect() {
         Log.d(TAG, "Returning to school selection screen");
         // Just finish this activity to return to the previous schoolSelect activity in the stack
         finish();
     }
     
-    // התנתקות מהמערכת
+    /**
+     * התנתקות מהמערכת ומחיקת נתוני התחברות
+     */
     private void logout() {
         // ניקוי כל נתוני החיבור
         SharedPreferences.Editor editor = sharedPreferences.edit();
@@ -102,7 +116,9 @@ public class schoolMegamotDetails extends AppCompatActivity {
         goToLoginScreen();
     }
     
-    // מעבר למסך כניסה
+    /**
+     * מעבר למסך כניסה
+     */
     private void goToLoginScreen() {
         Intent intent = new Intent(this, loginPage.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
@@ -110,7 +126,9 @@ public class schoolMegamotDetails extends AppCompatActivity {
         finish();
     }
     
-    // Handle system back button press the same way as our back button
+    /**
+     * טיפול בלחיצה על כפתור חזרה של המערכת
+     */
     @Override
     public void onBackPressed() {
         goBackToSchoolSelect();

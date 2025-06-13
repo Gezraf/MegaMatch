@@ -29,6 +29,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * מחלקה זו מאפשרת למנהל המערכת לנהל כתובות אימייל של רכזים בבית ספר מסוים.
+ * המנהל יכול להוסיף, למחוק ולשנות סטטוס אישור של אימיילים.
+ */
 public class AdminRakazEmailsActivity extends AppCompatActivity {
 
     private static final String TAG = "AdminRakazEmails";
@@ -56,10 +60,10 @@ public class AdminRakazEmailsActivity extends AppCompatActivity {
             return insets;
         });
         
-        // Get school ID from intent or shared preferences
+        // קבלת מזהה בית הספר מהאינטנט או מהעדפות משותפות
         schoolId = getIntent().getStringExtra("schoolId");
         if (schoolId == null) {
-            // If not in intent, get from shared preferences
+            // אם לא באינטנט, קבל מהעדפות משותפות
             schoolId = getSharedPreferences("MegaMatchPrefs", MODE_PRIVATE)
                     .getString("loggedInSchoolId", null);
             
@@ -70,10 +74,10 @@ public class AdminRakazEmailsActivity extends AppCompatActivity {
             }
         }
         
-        // Initialize Firestore
+        // אתחול Firestore
         fireDB = FirebaseFirestore.getInstance();
         
-        // Initialize UI components
+        // אתחול רכיבי הממשק
         emailInputLayout = findViewById(R.id.emailInputLayout);
         firstNameInputLayout = findViewById(R.id.firstNameInputLayout);
         lastNameInputLayout = findViewById(R.id.lastNameInputLayout);
@@ -85,18 +89,21 @@ public class AdminRakazEmailsActivity extends AppCompatActivity {
         recyclerView = findViewById(R.id.recyclerView);
         emptyView = findViewById(R.id.emptyView);
         
-        // Setup RecyclerView
+        // הגדרת RecyclerView
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
         adapter = new RakazEmailsAdapter(emailsList, this::onEmailItemClick);
         recyclerView.setAdapter(adapter);
         
-        // Setup Add button
+        // הגדרת כפתור הוספה
         addEmailButton.setOnClickListener(v -> addNewRakazEmail());
         
-        // Load existing emails
+        // טעינת אימיילים קיימים
         loadAllowedRakazEmails();
     }
     
+    /**
+     * טוען את רשימת האימיילים המאושרים של הרכזים מפיירבייס.
+     */
     private void loadAllowedRakazEmails() {
         progressBar.setVisibility(View.VISIBLE);
         emailsList.clear();
@@ -141,16 +148,20 @@ public class AdminRakazEmailsActivity extends AppCompatActivity {
                     Toast.makeText(AdminRakazEmailsActivity.this, 
                             "שגיאה בטעינת רשימת האימיילים: " + e.getMessage(), 
                             Toast.LENGTH_SHORT).show();
-                    Log.e(TAG, "Error loading emails", e);
+                    Log.e(TAG, "שגיאה בטעינת אימיילים", e);
                 });
     }
     
+    /**
+     * מוסיף כתובת אימייל חדשה של רכז לפיירבייס.
+     * כולל אימות קלט ובדיקה אם האימייל כבר קיים.
+     */
     private void addNewRakazEmail() {
         String email = emailInput.getText().toString().trim();
         String firstName = firstNameInput.getText().toString().trim();
         String lastName = lastNameInput.getText().toString().trim();
         
-        // Validate fields
+        // אימות שדות
         if (TextUtils.isEmpty(email) || TextUtils.isEmpty(firstName) || TextUtils.isEmpty(lastName)) {
             Toast.makeText(this, "נא למלא את כל השדות", Toast.LENGTH_SHORT).show();
             return;
@@ -163,7 +174,7 @@ public class AdminRakazEmailsActivity extends AppCompatActivity {
         
         progressBar.setVisibility(View.VISIBLE);
         
-        // Check if email already exists
+        // בדיקה אם האימייל כבר קיים
         fireDB.collection("schools").document(schoolId)
                 .collection("allowedRakazEmails").document(email)
                 .get()
@@ -174,7 +185,7 @@ public class AdminRakazEmailsActivity extends AppCompatActivity {
                                 "אימייל זה כבר קיים ברשימה", 
                                 Toast.LENGTH_SHORT).show();
                     } else {
-                        // Add new email to Firestore
+                        // הוספת אימייל חדש לפיירבייס
                         Map<String, Object> emailData = new HashMap<>();
                         emailData.put("firstName", firstName);
                         emailData.put("lastName", lastName);
@@ -190,12 +201,12 @@ public class AdminRakazEmailsActivity extends AppCompatActivity {
                                             "אימייל נוסף בהצלחה", 
                                             Toast.LENGTH_SHORT).show();
                                     
-                                    // Clear inputs
+                                    // ניקוי שדות קלט
                                     emailInput.setText("");
                                     firstNameInput.setText("");
                                     lastNameInput.setText("");
                                     
-                                    // Refresh list
+                                    // רענון הרשימה
                                     loadAllowedRakazEmails();
                                 })
                                 .addOnFailureListener(e -> {
@@ -203,7 +214,7 @@ public class AdminRakazEmailsActivity extends AppCompatActivity {
                                     Toast.makeText(AdminRakazEmailsActivity.this, 
                                             "שגיאה בהוספת אימייל: " + e.getMessage(), 
                                             Toast.LENGTH_SHORT).show();
-                                    Log.e(TAG, "Error adding email", e);
+                                    Log.e(TAG, "שגיאה בהוספת אימייל", e);
                                 });
                     }
                 })
@@ -212,22 +223,27 @@ public class AdminRakazEmailsActivity extends AppCompatActivity {
                     Toast.makeText(AdminRakazEmailsActivity.this, 
                             "שגיאה בבדיקת אימייל: " + e.getMessage(), 
                             Toast.LENGTH_SHORT).show();
-                    Log.e(TAG, "Error checking email", e);
+                    Log.e(TAG, "שגיאה בבדיקת אימייל", e);
                 });
     }
     
+    /**
+     * מטפל בלחיצה על פריט אימייל ברשימה ומציג אפשרויות.
+     * @param email אובייקט ה-RakazEmailModel שנלחץ.
+     * @param position המיקום של הפריט ברשימה.
+     */
     private void onEmailItemClick(RakazEmailModel email, int position) {
-        // Show dialog with options
+        // הצגת דיאלוג עם אפשרויות
         String[] options = {"מחק", "שנה סטטוס אישור"};
         
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle(email.getEmail())
                 .setItems(options, (dialog, which) -> {
                     switch (which) {
-                        case 0: // Delete
+                        case 0: // מחק
                             confirmDeleteEmail(email);
                             break;
-                        case 1: // Toggle approval
+                        case 1: // החלפת אישור
                             toggleEmailApproval(email, position);
                             break;
                     }
@@ -235,6 +251,10 @@ public class AdminRakazEmailsActivity extends AppCompatActivity {
         builder.create().show();
     }
     
+    /**
+     * מציג דיאלוג אישור מחיקה עבור אימייל מסוים.
+     * @param email אובייקט ה-RakazEmailModel למחיקה.
+     */
     private void confirmDeleteEmail(RakazEmailModel email) {
         if (email.isRegistered()) {
             Toast.makeText(this, "לא ניתן למחוק אימייל שכבר נרשם למערכת", Toast.LENGTH_SHORT).show();
@@ -248,70 +268,76 @@ public class AdminRakazEmailsActivity extends AppCompatActivity {
                 .setNegativeButton("לא", null)
                 .show();
     }
-    
+
+    /**
+     * מוחק אימייל מפיירבייס ומעדכן את הרשימה.
+     * @param email אובייקט ה-RakazEmailModel למחיקה.
+     */
     private void deleteEmail(RakazEmailModel email) {
         progressBar.setVisibility(View.VISIBLE);
-        
         fireDB.collection("schools").document(schoolId)
                 .collection("allowedRakazEmails").document(email.getEmail())
                 .delete()
                 .addOnSuccessListener(aVoid -> {
                     progressBar.setVisibility(View.GONE);
-                    Toast.makeText(AdminRakazEmailsActivity.this, 
-                            "אימייל נמחק בהצלחה", 
-                            Toast.LENGTH_SHORT).show();
-                    
-                    // Refresh list
-                    loadAllowedRakazEmails();
+                    Toast.makeText(AdminRakazEmailsActivity.this, "האימייל נמחק בהצלחה", Toast.LENGTH_SHORT).show();
+                    loadAllowedRakazEmails(); // Refresh the list
                 })
                 .addOnFailureListener(e -> {
                     progressBar.setVisibility(View.GONE);
                     Toast.makeText(AdminRakazEmailsActivity.this, 
-                            "שגיאה במחיקת אימייל: " + e.getMessage(), 
+                            "שגיאה במחיקת האימייל: " + e.getMessage(), 
                             Toast.LENGTH_SHORT).show();
-                    Log.e(TAG, "Error deleting email", e);
+                    Log.e(TAG, "שגיאה במחיקת אימייל", e);
                 });
     }
-    
+
+    /**
+     * משנה את סטטוס האישור של אימייל רכז ומעדכן בפיירבייס.
+     * @param email אובייקט ה-RakazEmailModel לשדרוג/שנמוך סטטוס האישור.
+     * @param position המיקום של הפריט ברשימה.
+     */
     private void toggleEmailApproval(RakazEmailModel email, int position) {
         if (email.isRegistered()) {
-            Toast.makeText(this, "לא ניתן לשנות סטטוס אישור לאימייל שכבר נרשם", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "לא ניתן לשנות סטטוס אישור לאימייל שכבר נרשם למערכת", Toast.LENGTH_SHORT).show();
             return;
         }
-        
-        boolean newApprovalStatus = !email.isApproved();
+
+        boolean newApprovedStatus = !email.isApproved();
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("approved", newApprovedStatus);
+
         progressBar.setVisibility(View.VISIBLE);
-        
         fireDB.collection("schools").document(schoolId)
                 .collection("allowedRakazEmails").document(email.getEmail())
-                .update("approved", newApprovalStatus)
+                .update(updates)
                 .addOnSuccessListener(aVoid -> {
                     progressBar.setVisibility(View.GONE);
-                    Toast.makeText(AdminRakazEmailsActivity.this, 
-                            "סטטוס אישור עודכן בהצלחה", 
-                            Toast.LENGTH_SHORT).show();
-                    
-                    // Update local list
-                    email.setApproved(newApprovalStatus);
+                    email.setApproved(newApprovedStatus); // Update model in list
                     adapter.notifyItemChanged(position);
+                    Toast.makeText(AdminRakazEmailsActivity.this, 
+                            "סטטוס האישור שונה בהצלחה ל- " + (newApprovedStatus ? "מאושר" : "לא מאושר"), 
+                            Toast.LENGTH_SHORT).show();
                 })
                 .addOnFailureListener(e -> {
                     progressBar.setVisibility(View.GONE);
                     Toast.makeText(AdminRakazEmailsActivity.this, 
-                            "שגיאה בעדכון סטטוס אישור: " + e.getMessage(), 
+                            "שגיאה בשינוי סטטוס אישור: " + e.getMessage(), 
                             Toast.LENGTH_SHORT).show();
-                    Log.e(TAG, "Error updating approval status", e);
+                    Log.e(TAG, "שגיאה בשינוי סטטוס אישור", e);
                 });
     }
-    
-    // Model class for rakaz email
+
+    /**
+     * מודל נתונים עבור אימייל רכז.
+     */
     public static class RakazEmailModel {
         private String email;
         private String firstName;
         private String lastName;
         private boolean approved;
         private boolean registered;
-        
+
         public RakazEmailModel(String email, String firstName, String lastName, boolean approved, boolean registered) {
             this.email = email;
             this.firstName = firstName;
@@ -319,27 +345,27 @@ public class AdminRakazEmailsActivity extends AppCompatActivity {
             this.approved = approved;
             this.registered = registered;
         }
-        
+
         public String getEmail() {
             return email;
         }
-        
+
         public String getFirstName() {
             return firstName;
         }
-        
+
         public String getLastName() {
             return lastName;
         }
-        
+
         public boolean isApproved() {
             return approved;
         }
-        
+
         public void setApproved(boolean approved) {
             this.approved = approved;
         }
-        
+
         public boolean isRegistered() {
             return registered;
         }

@@ -35,11 +35,15 @@ import com.google.firebase.firestore.FirebaseFirestore;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * מחלקה זו מציגה תצוגה מקדימה של מגמה, כולל פרטיה, דרישות קבלה ותמונות מצורפות.
+ * היא תומכת בשני מצבי תצוגה: למשתמש רגיל ולמנהל, כאשר למנהל יש אפשרות למחוק את המגמה.
+ */
 public class MegamaPreview extends AppCompatActivity {
 
     private static final String TAG = "MegamaPreview";
 
-    // UI components
+    // רכיבי ממשק משתמש
     private TextView greetingText, megamaTitle, megamaDescription, imageCounter;
     private TextView requirementExam, requirementGrade, noRequirementsText, noImagesText;
     private Button backButton;
@@ -47,18 +51,18 @@ public class MegamaPreview extends AppCompatActivity {
     private ViewPager2 imageViewPager;
     private LinearLayout customRequirementsContainer;
 
-    // Firebase
+    // פיירבייס
     private FirebaseFirestore fireDB;
 
-    // Data
+    // נתונים
     private String schoolId;
     private String username;
     private String megamaName;
-    private String megamaDocId; // The document ID for the megama (can be the megama name or rakaz username)
+    private String megamaDocId; // מזהה המסמך עבור המגמה (יכול להיות שם המגמה או שם המשתמש של הרכז)
     private List<String> imageUrls = new ArrayList<>();
     private int currentImagePosition = 0;
-    private boolean isManager = false; // Flag to identify if the user is a manager
-    private ImageButton deleteButton; // Delete button for managers
+    private boolean isManager = false; // דגל לזיהוי אם המשתמש הוא מנהל
+    private ImageButton deleteButton; // כפתור מחיקה למנהלים
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -71,13 +75,13 @@ public class MegamaPreview extends AppCompatActivity {
             return insets;
         });
 
-        // Initialize Firebase
+        // אתחול Firebase
         fireDB = FirebaseFirestore.getInstance();
 
-        // Initialize UI components
+        // אתחול רכיבי ממשק המשתמש
         initializeViews();
 
-        // Get data from intent
+        // קבלת נתונים מהאינטנט
         Bundle extras = getIntent().getExtras();
         if (extras != null) {
             schoolId = extras.getString("schoolId", "");
@@ -86,18 +90,18 @@ public class MegamaPreview extends AppCompatActivity {
             megamaDocId = extras.getString("megamaDocId", "");
             isManager = extras.getBoolean("isManager", false);
             
-            // For backward compatibility
+            // לתאימות לאחור
             if (megamaDocId == null || megamaDocId.isEmpty()) {
-                megamaDocId = megamaName; // Default to megama name if not specified
+                megamaDocId = megamaName; // ברירת מחדל לשם המגמה אם לא צוין
             }
             
-            Log.d(TAG, "Got from intent - megamaName: " + megamaName + ", megamaDocId: " + megamaDocId + ", isManager: " + isManager);
+            Log.d(TAG, "התקבל מהאינטנט - שם מגמה: " + megamaName + ", מזהה מסמך מגמה: " + megamaDocId + ", האם מנהל: " + isManager);
 
-            // If we have the document ID directly, load the megama details
+            // אם יש לנו את מזהה המסמך ישירות, טען את פרטי המגמה
             if (megamaDocId != null && !megamaDocId.isEmpty()) {
                 loadMegamaDetailsDirect();
             } else {
-                // Otherwise, load via rakaz document first
+                // אחרת, טען דרך מסמך הרכז תחילה
                 loadMegamaData();
             }
         } else {
@@ -105,10 +109,13 @@ public class MegamaPreview extends AppCompatActivity {
             finish();
         }
 
-        // Setup click listeners
+        // הגדרת מאזיני לחיצה
         setupClickListeners();
     }
 
+    /**
+     * מאתחל את כל רכיבי ממשק המשתמש.
+     */
     private void initializeViews() {
         greetingText = findViewById(R.id.greetingText);
         megamaTitle = findViewById(R.id.megamaTitle);
@@ -124,57 +131,57 @@ public class MegamaPreview extends AppCompatActivity {
         imageViewPager = findViewById(R.id.imageViewPager);
         customRequirementsContainer = findViewById(R.id.customRequirementsContainer);
 
-        // Immediately handle manager UI if needed
+        // טפל מיידית בממשק המשתמש של המנהל אם נדרש
         if (isManager) {
-            // Hide greeting right away to prevent flicker
+            // הסתר את הברכה מיד כדי למנוע הבהוב
             if (greetingText != null) {
                 greetingText.setVisibility(View.GONE);
             }
         }
 
-        // Setup ViewPager
+        // הגדרת ViewPager
         ImageSliderAdapter sliderAdapter = new ImageSliderAdapter();
         imageViewPager.setAdapter(sliderAdapter);
         
-        // If user is a manager, replace greeting with delete button
+        // אם המשתמש הוא מנהל, החלף את הברכה בכפתור מחיקה
         if (isManager) {
-            Log.d(TAG, "Manager mode detected, setting up delete button");
+            Log.d(TAG, "מצב מנהל זוהה, מגדיר כפתור מחיקה");
             setupDeleteButton();
             
-            // Alternative approach - directly modify the layout
+            // גישה חלופית - שנה ישירות את הפריסה
             if (greetingText != null) {
-                // Replace greeting text with a button
+                // החלף טקסט ברכה בכפתור
                 ViewGroup rootLayout = findViewById(R.id.megamaPreview);
                 if (rootLayout != null) {
-                    Log.d(TAG, "Adding delete button to root layout as a backup approach");
+                    Log.d(TAG, "מוסיף כפתור מחיקה לפריסת השורש כגישת גיבוי");
                     
-                    // Create another delete button as a fallback
+                    // צור כפתור מחיקה נוסף כגיבוי
                     ImageButton backupDeleteButton = new ImageButton(this);
                     backupDeleteButton.setImageResource(android.R.drawable.ic_menu_delete);
                     backupDeleteButton.setBackgroundColor(Color.RED);
                     backupDeleteButton.setColorFilter(Color.WHITE);
                     
-                    // Make it fixed size
+                    // הגדר גודל קבוע
                     LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
                             dpToPx(60),
                             dpToPx(60)
                     );
                     
-                    // Position it at the top right
+                    // מקם אותו בפינה הימנית העליונה
                     params.gravity = android.view.Gravity.TOP | android.view.Gravity.END;
                     params.setMargins(0, dpToPx(16), dpToPx(16), 0);
                     backupDeleteButton.setLayoutParams(params);
                     
-                    // Add click listener
+                    // הוסף מאזין לחיצה
                     backupDeleteButton.setOnClickListener(v -> showDeleteConfirmation());
                     
-                    // Add to layout
+                    // הוסף לפריסה
                     rootLayout.addView(backupDeleteButton);
                 }
             }
         }
         
-        // Setup ViewPager page change listener
+        // הגדרת מאזין שינוי עמוד של ViewPager
         imageViewPager.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
             @Override
             public void onPageSelected(int position) {
@@ -185,11 +192,14 @@ public class MegamaPreview extends AppCompatActivity {
         });
     }
 
+    /**
+     * מגדיר את מאזיני הלחיצה עבור כפתורי הניווט.
+     */
     private void setupClickListeners() {
-        // Back button
+        // כפתור חזרה
         backButton.setOnClickListener(v -> finish());
 
-        // Image navigation buttons
+        // כפתורי ניווט תמונה
         prevImageButton.setOnClickListener(v -> {
             if (currentImagePosition > 0) {
                 imageViewPager.setCurrentItem(currentImagePosition - 1);
@@ -203,14 +213,17 @@ public class MegamaPreview extends AppCompatActivity {
         });
     }
 
+    /**
+     * טוען נתוני מגמה מפיירסטור, תחילה באמצעות מסמך הרכז.
+     */
     private void loadMegamaData() {
-        // First get the megama name from the rakaz document
+        // תחילה קבל את שם המגמה ממסמך הרכז
         fireDB.collection("schools").document(schoolId)
               .collection("rakazim").document(username)
               .get()
               .addOnSuccessListener(documentSnapshot -> {
                   if (documentSnapshot.exists()) {
-                      // Get rakaz name and greeting (only for non-managers)
+                      // קבלת שם הרכז וברכה (רק עבור מי שאינם מנהלים)
                       if (!isManager) {
                           String firstName = documentSnapshot.getString("firstName");
                           if (firstName != null && !firstName.isEmpty()) {
@@ -220,10 +233,10 @@ public class MegamaPreview extends AppCompatActivity {
                           }
                       }
 
-                      // Get megama name
+                      // קבל שם מגמה
                       megamaName = documentSnapshot.getString("megama");
                       if (megamaName != null && !megamaName.isEmpty()) {
-                          // Now get the megama details
+                          // כעת קבל את פרטי המגמה
                           loadMegamaDetails();
                       } else {
                           Toast.makeText(this, "לא נמצאה מגמה", Toast.LENGTH_SHORT).show();
@@ -235,352 +248,299 @@ public class MegamaPreview extends AppCompatActivity {
                   }
               })
               .addOnFailureListener(e -> {
-                  Log.e(TAG, "Error loading rakaz data: " + e.getMessage());
+                  Log.e(TAG, "שגיאה בטעינת נתוני רכז: " + e.getMessage(), e);
                   Toast.makeText(this, "שגיאה בטעינת פרטי רכז", Toast.LENGTH_SHORT).show();
                   finish();
               });
     }
 
+    /**
+     * טוען את פרטי המגמה ישירות ממסמך המגמה בפיירסטור.
+     */
     private void loadMegamaDetailsDirect() {
-        // If this is a manager view, don't set up greeting at all
+        // אם זו תצוגת מנהל, אל תגדיר ברכה כלל
         if (isManager) {
-            // Ensure greeting is not visible for managers
+            // וודא שהברכה אינה גלויה למנהלים
             if (greetingText != null) {
-                Log.d(TAG, "Manager view - transforming greeting to a delete button");
+                Log.d(TAG, "תצוגת מנהל - הופך את הברכה לכפתור מחיקה");
+                // No need to set greetingText visibility to GONE, as it's already handled in initializeViews()
+                // The delete button will overlay it
                 
-                // Third approach - transform the TextView into a delete button visual
-                greetingText.setVisibility(View.VISIBLE);
-                greetingText.setText("");  // Clear text
-                greetingText.setBackgroundColor(Color.RED);
-                greetingText.setCompoundDrawablesWithIntrinsicBounds(0, 0, android.R.drawable.ic_menu_delete, 0);
-                greetingText.setPadding(dpToPx(8), dpToPx(8), dpToPx(8), dpToPx(8));
-                greetingText.setOnClickListener(v -> {
-                    Log.d(TAG, "Delete button (text view) clicked");
-                    showDeleteConfirmation();
-                });
+                // Ensure megamaDocId is correctly set if it was loaded from Rakaz document
+                if (megamaDocId == null || megamaDocId.isEmpty()) {
+                    megamaDocId = megamaName; // Fallback
+                }
             }
         }
-        // Set rakaz greeting if username is available and not in manager mode
-        else if (username != null && !username.isEmpty()) {
-            fireDB.collection("schools").document(schoolId)
-                  .collection("rakazim").document(username)
-                  .get()
-                  .addOnSuccessListener(documentSnapshot -> {
-                      if (documentSnapshot.exists()) {
-                          String firstName = documentSnapshot.getString("firstName");
-                          if (firstName != null && !firstName.isEmpty()) {
-                              greetingText.setText("שלום " + firstName);
-                          } else {
-                              greetingText.setText("שלום " + username);
-                          }
-                      } else {
-                          greetingText.setText("שלום");
-                      }
-                  })
-                  .addOnFailureListener(e -> {
-                      Log.e(TAG, "Error loading rakaz details for greeting: " + e.getMessage());
-                      greetingText.setText("שלום");
-                  });
-        } else {
-            greetingText.setText("שלום");
-        }
-        
-        // Now load the megama details using megamaDocId
-        Log.d(TAG, "Loading megama with document ID: " + megamaDocId);
+
         fireDB.collection("schools").document(schoolId)
-              .collection("megamot").document(megamaDocId)
-              .get()
-              .addOnSuccessListener(documentSnapshot -> {
-                  if (documentSnapshot.exists()) {
-                      // If megamaName is not set yet, get it from the document
-                      if (megamaName == null || megamaName.isEmpty()) {
-                          megamaName = documentSnapshot.getString("name");
-                      }
-                      displayMegamaDetails(documentSnapshot);
-                  } else {
-                      Log.e(TAG, "Megama document does not exist: " + megamaDocId);
-                      Toast.makeText(this, "לא נמצאו פרטי מגמה", Toast.LENGTH_SHORT).show();
-                      finish();
-                  }
-              })
-              .addOnFailureListener(e -> {
-                  Log.e(TAG, "Error loading megama details: " + e.getMessage());
-                  Toast.makeText(this, "שגיאה בטעינת פרטי מגמה", Toast.LENGTH_SHORT).show();
-                  finish();
-              });
+                .collection("megamot").document(megamaDocId)
+                .get()
+                .addOnSuccessListener(this::displayMegamaDetails)
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "שגיאה בטעינת פרטי מגמה ישירות: " + e.getMessage(), e);
+                    Toast.makeText(this, "שגיאה בטעינת פרטי מגמה", Toast.LENGTH_SHORT).show();
+                    finish();
+                });
     }
 
+    /**
+     * טוען את פרטי המגמה ממסמך המגמה בפיירסטור.
+     * זוהי שיטה משנית ל-loadMegamaDetailsDirect, המשמשת לאחר שליפת שם המגמה ממסמך הרכז.
+     */
     private void loadMegamaDetails() {
-        // Now megamaName has been loaded from the rakaz document,
-        // use it as the document ID for backward compatibility
-        megamaDocId = megamaName;
-        Log.d(TAG, "Loading megama with name as document ID: " + megamaDocId);
-        
         fireDB.collection("schools").document(schoolId)
-              .collection("megamot").document(megamaDocId)
-              .get()
-              .addOnSuccessListener(documentSnapshot -> {
-                  if (documentSnapshot.exists()) {
-                      displayMegamaDetails(documentSnapshot);
-                  } else {
-                      Log.e(TAG, "Megama document does not exist with megamaName: " + megamaDocId);
-                      Toast.makeText(this, "לא נמצאו פרטי מגמה", Toast.LENGTH_SHORT).show();
-                      finish();
-                  }
-              })
-              .addOnFailureListener(e -> {
-                  Log.e(TAG, "Error loading megama details: " + e.getMessage());
-                  Toast.makeText(this, "שגיאה בטעינת פרטי מגמה", Toast.LENGTH_SHORT).show();
-                  finish();
-              });
+            .collection("megamot").document(megamaName) // Use megamaName retrieved from rakaz doc
+            .get()
+            .addOnSuccessListener(this::displayMegamaDetails)
+            .addOnFailureListener(e -> {
+                Log.e(TAG, "שגיאה בטעינת פרטי מגמה: " + e.getMessage(), e);
+                Toast.makeText(this, "שגיאה בטעינת פרטי מגמה", Toast.LENGTH_SHORT).show();
+                finish();
+            });
     }
 
+    /**
+     * מציג את פרטי המגמה על גבי ממשק המשתמש.
+     * @param document מסמך ה-Firestore המכיל את פרטי המגמה.
+     */
     private void displayMegamaDetails(DocumentSnapshot document) {
-        // Set title
-        megamaTitle.setText("מגמת " + megamaName);
+        if (document.exists()) {
+            // קבלת נתונים מהמסמך
+            String fetchedMegamaName = document.getString("name");
+            String description = document.getString("description");
+            Boolean requiresExam = document.getBoolean("requiresExam");
+            Boolean requiresGradeAvg = document.getBoolean("requiresGradeAvg");
+            Long requiredGradeAvg = document.getLong("requiredGradeAvg");
+            ArrayList<String> customConditions = (ArrayList<String>) document.get("customConditions");
+            ArrayList<String> fetchedImageUrls = (ArrayList<String>) document.get("imageUrls");
 
-        // Set description
-        String description = document.getString("description");
-        if (description != null && !description.isEmpty()) {
-            megamaDescription.setText(description);
-        } else {
-            megamaDescription.setText("אין תיאור מגמה");
-        }
+            // עדכון רכיבי ממשק המשתמש
+            if (fetchedMegamaName != null) {
+                megamaTitle.setText(fetchedMegamaName);
+                this.megamaName = fetchedMegamaName; // Update internal megamaName
+            }
+            megamaDescription.setText(description != null ? description : "אין תיאור.");
 
-        // Load images
-        List<String> images = (List<String>) document.get("imageUrls");
-        if (images != null && !images.isEmpty()) {
-            imageUrls.addAll(images);
-            ((ImageSliderAdapter) imageViewPager.getAdapter()).notifyDataSetChanged();
-            updateImageCounter();
-            
-            // Show/hide navigation buttons based on number of images
-            boolean hasMultipleImages = imageUrls.size() > 1;
-            prevImageButton.setVisibility(hasMultipleImages ? View.VISIBLE : View.GONE);
-            nextImageButton.setVisibility(hasMultipleImages ? View.VISIBLE : View.GONE);
-            noImagesText.setVisibility(View.GONE);
-        } else {
-            // No images available
-            imageCounter.setVisibility(View.GONE);
-            prevImageButton.setVisibility(View.GONE);
-            nextImageButton.setVisibility(View.GONE);
-            noImagesText.setVisibility(View.VISIBLE);
-        }
+            // טפל בדרישות
+            boolean hasRequirements = false;
+            if (Boolean.TRUE.equals(requiresExam)) {
+                requirementExam.setVisibility(View.VISIBLE);
+                hasRequirements = true;
+            } else {
+                requirementExam.setVisibility(View.GONE);
+            }
 
-        // Show requirements
-        boolean hasRequirements = false;
-        
-        // Check if exam is required
-        Boolean requiresExamValue = document.getBoolean("requiresExam");
-        if (requiresExamValue != null && requiresExamValue) {
-            requirementExam.setVisibility(View.VISIBLE);
-            hasRequirements = true;
-        } else {
-            requirementExam.setVisibility(View.GONE);
-        }
-        
-        // Check if grade average is required
-        Boolean requiresGradeAvgValue = document.getBoolean("requiresGradeAvg");
-        if (requiresGradeAvgValue != null && requiresGradeAvgValue) {
-            Long requiredGradeAvgValue = document.getLong("requiredGradeAvg");
-            if (requiredGradeAvgValue != null) {
-                requirementGrade.setText("נדרש ממוצע ציונים של: " + requiredGradeAvgValue);
+            if (Boolean.TRUE.equals(requiresGradeAvg) && requiredGradeAvg != null) {
+                requirementGrade.setText("דורש ממוצע ציונים: " + requiredGradeAvg);
                 requirementGrade.setVisibility(View.VISIBLE);
                 hasRequirements = true;
+            } else {
+                requirementGrade.setVisibility(View.GONE);
+            }
+
+            // הוסף תנאים מותאמים אישית
+            if (customConditions != null && !customConditions.isEmpty()) {
+                customRequirementsContainer.setVisibility(View.VISIBLE);
+                for (String condition : customConditions) {
+                    addCustomRequirement(condition);
+                }
+                hasRequirements = true;
+            } else {
+                customRequirementsContainer.setVisibility(View.GONE);
+            }
+
+            if (!hasRequirements) {
+                noRequirementsText.setVisibility(View.VISIBLE);
+            } else {
+                noRequirementsText.setVisibility(View.GONE);
+            }
+
+            // טפל בתמונות
+            if (fetchedImageUrls != null && !fetchedImageUrls.isEmpty()) {
+                imageUrls.clear();
+                imageUrls.addAll(fetchedImageUrls);
+                imageViewPager.getAdapter().notifyDataSetChanged();
+                updateImageCounter();
+                prevImageButton.setVisibility(View.VISIBLE);
+                nextImageButton.setVisibility(View.VISIBLE);
+                noImagesText.setVisibility(View.GONE);
+            } else {
+                imageViewPager.setVisibility(View.GONE);
+                prevImageButton.setVisibility(View.GONE);
+                nextImageButton.setVisibility(View.GONE);
+                imageCounter.setVisibility(View.GONE);
+                noImagesText.setVisibility(View.VISIBLE);
             }
         } else {
-            requirementGrade.setVisibility(View.GONE);
+            Toast.makeText(this, "מגמה לא נמצאה", Toast.LENGTH_SHORT).show();
+            finish();
         }
-        
-        // Add custom requirements
-        List<String> customConditions = (List<String>) document.get("customConditions");
-        if (customConditions != null && !customConditions.isEmpty()) {
-            customRequirementsContainer.removeAllViews();
-            for (String condition : customConditions) {
-                addCustomRequirement(condition);
-            }
-            hasRequirements = true;
-        }
-        
-        // Show "no requirements" message if needed
-        noRequirementsText.setVisibility(hasRequirements ? View.GONE : View.VISIBLE);
     }
 
+    /**
+     * מוסיף דרישה מותאמת אישית לממשק המשתמש.
+     * @param requirement הדרישה המותאמת אישית להוספה.
+     */
     private void addCustomRequirement(String requirement) {
         TextView textView = new TextView(this);
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT);
-        params.setMargins(0, 0, 0, 16); // bottom margin
-        textView.setLayoutParams(params);
-        
-        textView.setText(requirement);
+        textView.setText("• " + requirement);
+        textView.setTextColor(Color.WHITE);
         textView.setTextSize(16);
-        textView.setTextColor(getResources().getColor(R.color.white));
-        textView.setCompoundDrawablesWithIntrinsicBounds(0, 0, android.R.drawable.checkbox_on_background, 0);
-        textView.setCompoundDrawablePadding(8);
-        
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        params.setMargins(0, 8, 0, 0);
+        textView.setLayoutParams(params);
         customRequirementsContainer.addView(textView);
     }
 
+    /**
+     * מעדכן את מונה התמונות המוצגות.
+     */
     private void updateImageCounter() {
-        if (imageUrls.size() > 0) {
-            imageCounter.setText((currentImagePosition + 1) + "/" + imageUrls.size());
+        if (!imageUrls.isEmpty()) {
+            String counterText = (currentImagePosition + 1) + " / " + imageUrls.size();
+            imageCounter.setText(counterText);
             imageCounter.setVisibility(View.VISIBLE);
         } else {
             imageCounter.setVisibility(View.GONE);
         }
     }
 
-    // Setup delete button for managers
+    /**
+     * מגדיר את כפתור המחיקה למנהלים.
+     * מחליף את ה-greetingText בכפתור מחיקה.
+     */
     private void setupDeleteButton() {
-        // Instead of removing the greeting text, let's convert it into a container for our button
-        // This ensures we maintain the same layout positioning
-        
-        // First make sure the greeting text is hidden
-        greetingText.setVisibility(View.GONE);
-        
-        // Get the parent layout that contains the greeting text
-        ViewGroup parent = (ViewGroup) greetingText.getParent();
-        if (parent != null) {
-            Log.d(TAG, "Parent view found, adding delete button");
-            
-            // Create delete button programmatically with very clear styling
+        Log.d(TAG, "Setting up delete button for manager");
+        if (greetingText != null) {
+            // Replace greetingText with a Button
+            ViewGroup parent = (ViewGroup) greetingText.getParent();
+            int index = parent.indexOfChild(greetingText);
+            parent.removeView(greetingText);
+
             deleteButton = new ImageButton(this);
-            deleteButton.setId(View.generateViewId()); // Give it a unique ID
             deleteButton.setImageResource(android.R.drawable.ic_menu_delete);
-            deleteButton.setBackgroundColor(Color.RED);
-            deleteButton.setColorFilter(Color.WHITE); // White icon
+            deleteButton.setBackgroundColor(Color.TRANSPARENT);
+            deleteButton.setColorFilter(Color.WHITE);
             
-            // Make sure the button is visible with clear dimensions
-            deleteButton.setVisibility(View.VISIBLE);
-            
-            // Set button size and style (make it larger and more visible)
+            // Set a size for the button (e.g., 48dp)
             LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                    dpToPx(60), // 60dp width - bigger to be more visible
-                    dpToPx(60)  // 60dp height - bigger to be more visible
+                    dpToPx(48),
+                    dpToPx(48)
             );
-            params.setMargins(dpToPx(8), dpToPx(8), dpToPx(8), dpToPx(8)); // Add margins all around
+            // Center the button horizontally
+            params.gravity = android.view.Gravity.CENTER_HORIZONTAL;
             deleteButton.setLayoutParams(params);
-            
-            // Add the button directly to the parent layout
-            parent.addView(deleteButton);
-            
-            // Set click listener
-            deleteButton.setOnClickListener(v -> {
-                Log.d(TAG, "Delete button clicked");
-                showDeleteConfirmation();
-            });
-            
-            Log.d(TAG, "Delete button added successfully");
-        } else {
-            Log.e(TAG, "Could not find parent view for greeting text");
+
+            deleteButton.setOnClickListener(v -> showDeleteConfirmation());
+            parent.addView(deleteButton, index); // Add at the same position
         }
     }
-    
-    // Convert dp to pixels
+
+    /**
+     * ממיר יחידות dp לפיקסלים.
+     * @param dp ערך ב-dp.
+     * @return הערך המומר בפיקסלים.
+     */
     private int dpToPx(int dp) {
-        float density = getResources().getDisplayMetrics().density;
-        return Math.round(dp * density);
+        return (int) (dp * getResources().getDisplayMetrics().density + 0.5f);
     }
-    
-    // Show delete confirmation dialog with cooldown
+
+    /**
+     * מציג דיאלוג אישור למחיקת המגמה.
+     */
     private void showDeleteConfirmation() {
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("מחיקת מגמה");
-        builder.setMessage("פעולה זו תמחק לצמיתות את המגמה. להמשיך?");
-        
-        // Create cancel button
-        builder.setNegativeButton("בטל", (dialog, which) -> dialog.dismiss());
-        
-        // Create delete button with cooldown
-        final int[] countdown = {3}; // 3 second countdown
-        final TextView[] deleteButtonText = new TextView[1]; // For reference to button text
-        
-        builder.setPositiveButton("מחק", null); // We'll override this below
-        
-        AlertDialog dialog = builder.create();
-        dialog.setOnShowListener(dialogInterface -> {
-            Button deleteButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
-            deleteButton.setTextColor(Color.RED);
-            deleteButton.setEnabled(false);
-            deleteButtonText[0] = (TextView) deleteButton;
-            
-            // Set initial transparency
-            deleteButton.setAlpha(0.3f);
-            
-            // Start countdown
-            new CountDownTimer(3000, 1000) {
-                @Override
-                public void onTick(long millisUntilFinished) {
-                    countdown[0] = (int) (millisUntilFinished / 1000) + 1;
-                    deleteButton.setText("מחק (" + countdown[0] + ")");
-                }
-                
-                @Override
-                public void onFinish() {
-                    deleteButton.setEnabled(true);
-                    deleteButton.setAlpha(1.0f);
-                    deleteButton.setText("מחק");
-                    
-                    // Set click listener for actual delete
-                    deleteButton.setOnClickListener(v -> {
-                        dialog.dismiss();
-                        deleteMegama();
-                    });
-                }
-            }.start();
-        });
-        
-        dialog.show();
+        new AlertDialog.Builder(this)
+                .setTitle("מחיקת מגמה")
+                .setMessage("האם אתה בטוח שברצונך למחוק את המגמה " + megamaName + "?")
+                .setPositiveButton("מחק", new DialogInterface.OnClickListener() {
+                    private static final int COUNTDOWN_TIME = 3;
+                    private CountDownTimer countDownTimer;
+                    private Button positiveButton;
+
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        if (positiveButton != null && !positiveButton.isEnabled()) {
+                            deleteMegama();
+                            if (countDownTimer != null) {
+                                countDownTimer.cancel();
+                            }
+                        } else {
+                            positiveButton = ((AlertDialog) dialog).getButton(DialogInterface.BUTTON_POSITIVE);
+                            positiveButton.setEnabled(false);
+                            countDownTimer = new CountDownTimer(COUNTDOWN_TIME * 1000, 1000) {
+                                @Override
+                                public void onTick(long millisUntilFinished) {
+                                    positiveButton.setText("מחק (" + (millisUntilFinished / 1000) + ")");
+                                }
+
+                                @Override
+                                public void onFinish() {
+                                    positiveButton.setText("מחק");
+                                    positiveButton.setEnabled(true);
+                                    deleteMegama();
+                                    dialog.dismiss();
+                                }
+                            }.start();
+                        }
+                    }
+                })
+                .setNegativeButton("בטל", (dialog, which) -> dialog.dismiss())
+                .show();
     }
-    
-    // Delete the megama from Firestore
+
+    /**
+     * מוחק את המגמה מפיירסטור.
+     */
     private void deleteMegama() {
-        // Show progress
         ProgressDialog progressDialog = new ProgressDialog(this);
         progressDialog.setMessage("מוחק מגמה...");
         progressDialog.setCancelable(false);
         progressDialog.show();
-        
-        // Delete megama document
+
         fireDB.collection("schools").document(schoolId)
-            .collection("megamot").document(megamaDocId)
-            .delete()
-            .addOnSuccessListener(aVoid -> {
-                progressDialog.dismiss();
-                Toast.makeText(MegamaPreview.this, "המגמה נמחקה בהצלחה", Toast.LENGTH_SHORT).show();
-                // Return to previous screen
-                finish();
-            })
-            .addOnFailureListener(e -> {
-                progressDialog.dismiss();
-                Log.e(TAG, "Error deleting megama", e);
-                Toast.makeText(MegamaPreview.this, "שגיאה במחיקת המגמה: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-            });
+                .collection("megamot").document(megamaDocId)
+                .delete()
+                .addOnSuccessListener(aVoid -> {
+                    Toast.makeText(MegamaPreview.this, "מגמה נמחקה בהצלחה", Toast.LENGTH_SHORT).show();
+                    // Update rakaz document to remove megama reference
+                    fireDB.collection("schools").document(schoolId)
+                            .collection("rakazim").document(username)
+                            .update("megama", null) // Remove megama name from rakaz document
+                            .addOnSuccessListener(aVoid2 -> Log.d(TAG, "הפניית מגמה הוסרה ממסמך הרכז"))
+                            .addOnFailureListener(e -> Log.e(TAG, "שגיאה בהסרת הפניית מגמה ממסמך הרכז", e));
+                    progressDialog.dismiss();
+                    finish(); // Close activity after deletion
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "שגיאה במחיקת מגמה: " + e.getMessage(), e);
+                    Toast.makeText(MegamaPreview.this, "שגיאה במחיקת מגמה: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                    progressDialog.dismiss();
+                });
     }
 
-    // ViewPager adapter for image slider
+    /**
+     * מתאם (Adapter) עבור ה-ViewPager2 המציג את תמונות המגמה.
+     */
     private class ImageSliderAdapter extends RecyclerView.Adapter<ImageSliderAdapter.ImageViewHolder> {
 
         @NonNull
         @Override
         public ImageViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-            View view = LayoutInflater.from(parent.getContext())
-                    .inflate(R.layout.item_image_slider, parent, false);
+            View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.image_item, parent, false);
             return new ImageViewHolder(view);
         }
 
         @Override
         public void onBindViewHolder(@NonNull ImageViewHolder holder, int position) {
             String imageUrl = imageUrls.get(position);
-            
-            // Load image using Glide
-            Glide.with(MegamaPreview.this)
+            Glide.with(holder.imageView.getContext())
                     .load(imageUrl)
                     .diskCacheStrategy(DiskCacheStrategy.ALL)
                     .centerCrop()
-                    .error(R.drawable.gradient_background) // Fallback if image fails to load
                     .into(holder.imageView);
         }
 
@@ -589,12 +549,15 @@ public class MegamaPreview extends AppCompatActivity {
             return imageUrls.size();
         }
 
+        /**
+         * מחזיק תצוגה (ViewHolder) עבור פריטי תמונה במחוון התמונות.
+         */
         class ImageViewHolder extends RecyclerView.ViewHolder {
             ImageView imageView;
 
             ImageViewHolder(@NonNull View itemView) {
                 super(itemView);
-                imageView = itemView.findViewById(R.id.sliderImageView);
+                imageView = itemView.findViewById(R.id.imageView);
             }
         }
     }

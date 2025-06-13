@@ -1,8 +1,24 @@
 package com.project.megamatch.models;
 
+/**
+ * הגדרת תפקידי המשתמשים השונים במערכת.
+ * כל תפקיד מגדיר את רמת ההרשאות והגישה לפונקציונליות שונה באפליקציה.
+ */
 public enum UserRole {
-    GUEST,           // Can view megamot without login
-    RAKAZ,          // Department coordinator
-    MANAGER,        // School manager
-    ADMIN           // System administrator
+    /**
+     * תפקיד אורח - יכול לצפות במגמות ללא צורך בהתחברות.
+     */
+    GUEST,
+    /**
+     * תפקיד רכז - מתאם מגמות.
+     */
+    RAKAZ,
+    /**
+     * תפקיד מנהל - מנהל בית ספר.
+     */
+    MANAGER,
+    /**
+     * תפקיד אדמין - מנהל מערכת בעל הרשאות מלאות.
+     */
+    ADMIN
 } 

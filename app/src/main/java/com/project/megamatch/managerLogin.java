@@ -248,54 +248,46 @@ public class managerLogin extends AppCompatActivity {
         // Set dropdown background to be semi-transparent
         schoolAutocomplete.setDropDownBackgroundResource(R.drawable.dropdown_background);
         
-        // Handle school selection from the dropdown
-        schoolAutocomplete.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-            @Override
-            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                selectedSchool = (schoolsDB.School) parent.getItemAtPosition(position);
-                schoolAutocomplete.setText(selectedSchool.getSchoolName());
-            }
+        // Set listener for item selection
+        schoolAutocomplete.setOnItemClickListener((parent, view, position, id) -> {
+            selectedSchool = (schoolsDB.School) parent.getItemAtPosition(position);
+            Log.d(TAG, "Selected school: " + selectedSchool.getSchoolName() + " (ID: " + selectedSchool.getSchoolId() + ")");
         });
-        
-        // Handle text changes (for manual entry)
+
+        // Add a TextWatcher to clear selectedSchool if text changes
         schoolAutocomplete.addTextChangedListener(new TextWatcher() {
             @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-            
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+                // Not used
+            }
+
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
-                if (s.length() > 0) {
-                    // Try to find school by ID or name
-                    String query = s.toString().trim();
-                    
-                    // Check if the entered text is a school ID
-                    if (query.matches("\\d+")) {
-                        int schoolId = Integer.parseInt(query);
-                        schoolsDB.School foundSchool = findSchoolById(schoolId);
-                        
-                        if (foundSchool != null) {
-                            selectedSchool = foundSchool;
-                        } else {
-                            selectedSchool = null;
-                        }
-                    } else {
-                        // If text doesn't match a selected school, clear the selection
-                        if (selectedSchool != null && !selectedSchool.getSchoolName().equals(query)) {
-                            selectedSchool = null;
-                        }
-                    }
-                } else {
+                // If the user types, the selected school might no longer be valid
+                if (selectedSchool != null && !selectedSchool.getSchoolName().equals(s.toString())) {
                     selectedSchool = null;
                 }
+                
+                // If the text is empty, hide the dropdown
+                if (s.length() == 0) {
+                    schoolAutocomplete.dismissDropDown();
+                }
             }
-            
+
             @Override
-            public void afterTextChanged(Editable s) {}
+            public void afterTextChanged(Editable s) {
+                // Not used
+            }
         });
     }
     
+    /**
+     * מוצא בית ספר לפי מזהה בית ספר.
+     * @param schoolId מזהה בית הספר.
+     * @return אובייקט School אם נמצא, אחרת null.
+     */
     private schoolsDB.School findSchoolById(int schoolId) {
-        for (schoolsDB.School school : firebaseSchools) {
+        for (schoolsDB.School school : allSchools) {
             if (school.getSchoolId() == schoolId) {
                 return school;
             }
@@ -303,288 +295,262 @@ public class managerLogin extends AppCompatActivity {
         return null;
     }
     
+    /**
+     * מתאם מותאם אישית (Custom Adapter) עבור ה-AutoCompleteTextView של בחירת בית הספר.
+     * מסנן את רשימת בתי הספר על בסיס קלט המשתמש.
+     */
     private class SchoolAdapter extends ArrayAdapter<schoolsDB.School> implements Filterable {
         private List<schoolsDB.School> originalList;
         private List<schoolsDB.School> filteredList;
-        
+
         public SchoolAdapter(managerLogin context, int resource, List<schoolsDB.School> objects) {
             super(context, resource, objects);
             this.originalList = new ArrayList<>(objects);
             this.filteredList = new ArrayList<>(objects);
         }
-        
+
         @Override
         public int getCount() {
             return filteredList.size();
         }
-        
+
         @Override
         public schoolsDB.School getItem(int position) {
             return filteredList.get(position);
         }
-        
+
         @Override
         public Filter getFilter() {
             return new Filter() {
                 @Override
                 protected FilterResults performFiltering(CharSequence constraint) {
                     FilterResults results = new FilterResults();
-                    
-                    // If there's no constraint, return the whole list
+                    List<schoolsDB.School> suggestions = new ArrayList<>();
+
                     if (constraint == null || constraint.length() == 0) {
-                        results.values = originalList;
-                        results.count = originalList.size();
-                        return results;
-                    }
-                    
-                    // Convert to lower case and remove leading/trailing spaces
-                    String filterSeq = constraint.toString().toLowerCase().trim();
-                    
-                    List<schoolsDB.School> filtered = new ArrayList<>();
-                    
-                    // Filter by school name, ID, or town
-                    for (schoolsDB.School school : originalList) {
-                        String schoolName = school.getSchoolName().toLowerCase();
-                        String schoolId = String.valueOf(school.getSchoolId());
-                        String town = school.getTown() != null ? 
-                            school.getTown() : "";
-                        
-                        // Create a formatted string for display
-                        String displayText = String.format("%s\nסמל מוסד: %d\nיישוב: %s",
-                            schoolName, school.getSchoolId(), town);
-                        
-                        if (schoolName.contains(filterSeq) || 
-                            schoolId.contains(filterSeq) || 
-                            displayText.contains(filterSeq)) {
-                            filtered.add(school);
+                        suggestions.addAll(originalList);
+                    } else {
+                        String filterPattern = constraint.toString().toLowerCase().trim();
+                        for (schoolsDB.School school : originalList) {
+                            if (school.getSchoolName().toLowerCase().contains(filterPattern) ||
+                                    String.valueOf(school.getSchoolId()).contains(filterPattern)) {
+                                suggestions.add(school);
+                            }
                         }
                     }
-                    
-                    results.values = filtered;
-                    results.count = filtered.size();
-                    
+
+                    results.values = suggestions;
+                    results.count = suggestions.size();
                     return results;
                 }
-                
+
                 @Override
                 protected void publishResults(CharSequence constraint, FilterResults results) {
-                    filteredList = (List<schoolsDB.School>) results.values;
+                    filteredList.clear();
+                    if (results != null && results.count > 0) {
+                        filteredList.addAll((List<schoolsDB.School>) results.values);
+                    }
                     notifyDataSetChanged();
                 }
             };
         }
-        
+
         @Override
         public View getView(int position, View convertView, android.view.ViewGroup parent) {
-            View view = super.getView(position, convertView, parent);
-            schoolsDB.School school = getItem(position);
-            
-            // Display only school name in the dropdown, not ID
-            ((android.widget.TextView) view).setText(school.getSchoolName());
-            // Make text white and background transparent
-            ((android.widget.TextView) view).setTextColor(getResources().getColor(R.color.white));
-            view.setBackgroundColor(android.graphics.Color.TRANSPARENT);
-            
-            return view;
+            if (convertView == null) {
+                convertView = LayoutInflater.from(getContext()).inflate(R.layout.dropdown_item, parent, false);
+            }
+            TextView schoolName = convertView.findViewById(R.id.text1);
+            schoolName.setText(filteredList.get(position).getSchoolName() + " (ID: " + filteredList.get(position).getSchoolId() + ")");
+            return convertView;
         }
     }
     
+    /**
+     * בודק אם מנהל המערכת כבר מחובר (על בסיס סשן שמור).
+     * אם כן, מעביר לדף המנהל.
+     */
     private void checkIfAlreadyLoggedIn() {
-        String savedSchoolId = sharedPreferences.getString("loggedInManagerSchoolId", "");
-        String savedUsername = sharedPreferences.getString("loggedInManagerUsername", "");
-        
-        if (!savedSchoolId.isEmpty() && !savedUsername.isEmpty()) {
-            // User is already logged in, navigate to manager home page
-            Intent intent = new Intent(managerLogin.this, managerPage.class);
-            startActivity(intent);
-            finish();
+        boolean loggedIn = sharedPreferences.getBoolean("loggedInManager", false);
+        String schoolId = sharedPreferences.getString("loggedInManagerSchoolId", "");
+        String username = sharedPreferences.getString("loggedInManagerUsername", "");
+
+        if (loggedIn && !schoolId.isEmpty() && !username.isEmpty()) {
+            Log.d(TAG, "Manager already logged in: " + username + " for school: " + schoolId);
+            goToManagerPage(schoolId, username);
         }
     }
     
+    /**
+     * שומר את פרטי סשן המנהל בהעדפות המשותפות.
+     * @param schoolId מזהה בית הספר של המנהל.
+     * @param username שם המשתמש של המנהל.
+     */
     private void saveManagerSession(String schoolId, String username) {
-        try {
-            // Save manager session data in SharedPreferences
-            Log.d(TAG, "Saving manager session for: " + username + " in school: " + schoolId);
-            sharedPreferences.edit()
-                .putString("loggedInManagerSchoolId", schoolId)
-                .putString("loggedInManagerUsername", username)
-                .apply();
-        } catch (Exception e) {
-            Log.e(TAG, "Error saving manager session: " + e.getMessage(), e);
-        }
+        SharedPreferences.Editor editor = sharedPreferences.edit();
+        editor.putBoolean("loggedInManager", true);
+        editor.putString("loggedInManagerSchoolId", schoolId);
+        editor.putString("loggedInManagerUsername", username);
+        editor.apply();
+        Log.d(TAG, "Manager session saved: " + username + " for school: " + schoolId);
     }
     
-    private void goToManagerPage() {
-        Intent intent = new Intent(managerLogin.this, managerPage.class);
+    /**
+     * עובר לדף המנהל.
+     * @param schoolId מזהה בית הספר של המנהל.
+     * @param username שם המשתמש של המנהל.
+     */
+    private void goToManagerPage(String schoolId, String username) {
+        Intent intent = new Intent(this, managerPage.class);
+        intent.putExtra("schoolId", schoolId);
+        intent.putExtra("username", username);
         startActivity(intent);
         finish();
     }
     
+    /**
+     * מטפל בלחיצה על כפתור ההתחברות של המנהל.
+     * מאמת את הקלט ומבצע ניסיון התחברות לפיירסטור.
+     */
     private void managerLoginClick() {
-        // Get input values
-        String schoolIdText = "";
+        String schoolName = schoolAutocomplete.getText().toString().trim();
         String username = usernameInput.getText().toString().trim();
         String id = idInput.getText().toString().trim();
         String password = passwordInput.getText().toString().trim();
-        
-        // Validate school selection
-        if (selectedSchool == null) {
-            String enteredSchool = schoolAutocomplete.getText().toString().trim();
-            
-            if (enteredSchool.isEmpty()) {
-                Toast.makeText(this, "יש לבחור בית ספר", Toast.LENGTH_SHORT).show();
-                return;
-            }
-            
-            // Check if entered text is a valid school ID
-            if (enteredSchool.matches("\\d+")) {
-                schoolIdText = enteredSchool;
-            } else {
-                // Try to find the school by name
-                boolean found = false;
-                for (schoolsDB.School school : firebaseSchools) {
-                    if (school.getSchoolName().equalsIgnoreCase(enteredSchool)) {
-                        selectedSchool = school;
-                        schoolIdText = String.valueOf(school.getSchoolId());
-                        found = true;
-                        break;
-                    }
-                }
-                
-                if (!found) {
-                    Toast.makeText(this, "בית הספר שהוזן אינו קיים במערכת", Toast.LENGTH_SHORT).show();
-                    return;
-                }
-            }
-        } else {
-            schoolIdText = String.valueOf(selectedSchool.getSchoolId());
-        }
-        
-        // Validate other inputs
-        if (username.isEmpty()) {
-            Toast.makeText(this, "יש להזין שם משתמש", Toast.LENGTH_SHORT).show();
+
+        if (schoolName.isEmpty() || username.isEmpty() || id.isEmpty() || password.isEmpty()) {
+            Toast.makeText(this, "נא למלא את כל השדות", Toast.LENGTH_SHORT).show();
             return;
         }
-        
-        if (id.isEmpty()) {
-            Toast.makeText(this, "יש להזין תעודת זהות", Toast.LENGTH_SHORT).show();
-            return;
-        }
-        
-        // Validate ID is 9 digits
-        if (id.length() != 9 || !id.matches("\\d+")) {
+
+        if (id.length() != 9) {
             Toast.makeText(this, "תעודת זהות חייבת להיות באורך 9 ספרות", Toast.LENGTH_SHORT).show();
             return;
         }
-        
-        if (password.isEmpty()) {
-            Toast.makeText(this, "יש להזין סיסמה", Toast.LENGTH_SHORT).show();
+
+        if (!id.matches("\\d+")) {
+            Toast.makeText(this, "תעודת זהות יכולה להכיל רק ספרות", Toast.LENGTH_SHORT).show();
             return;
         }
-        
-        // Validate password length
-        if (password.length() < 3 || password.length() > 22) {
-            Toast.makeText(this, "סיסמה חייבת להיות באורך 3-22 תווים", Toast.LENGTH_SHORT).show();
+
+        if (selectedSchool == null || !selectedSchool.getSchoolName().equals(schoolName)) {
+            // If selectedSchool is null or its name doesn't match the entered text, try to find it by name
+            boolean found = false;
+            for (schoolsDB.School school : firebaseSchools) {
+                if (school.getSchoolName().equalsIgnoreCase(schoolName)) {
+                    selectedSchool = school;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                Toast.makeText(this, "נא לבחור בית ספר מהרשימה המוצעת", Toast.LENGTH_SHORT).show();
+                return;
+            }
+        }
+
+        if (selectedSchool == null) {
+            Toast.makeText(this, "שגיאה: לא נבחר בית ספר תקין", Toast.LENGTH_SHORT).show();
             return;
         }
-        
-        // Show progress indicator
+
+        String selectedSchoolId = String.valueOf(selectedSchool.getSchoolId());
+
         progressBar.setVisibility(View.VISIBLE);
         managerLoginButton.setEnabled(false);
-        
-        // Check if manager exists
-        checkManagerExistence(schoolIdText, username, id, password);
+
+        Log.d(TAG, "Attempting manager login for school: " + selectedSchoolId + ", username: " + username);
+
+        checkManagerExistence(selectedSchoolId, username, id, password);
     }
     
+    /**
+     * בודק את קיום המנהל בפיירסטור ומאמת את פרטי ההתחברות.
+     * @param schoolId מזהה בית הספר.
+     * @param username שם המשתמש של המנהל.
+     * @param id תעודת הזהות של המנהל.
+     * @param password הסיסמה של המנהל.
+     */
     private void checkManagerExistence(String schoolId, String username, String id, String password) {
         db.collection("schools").document(schoolId)
-            .collection("managers").document(username)
-            .get()
-            .addOnCompleteListener(task -> {
-                if (task.isSuccessful()) {
-                    DocumentSnapshot document = task.getResult();
-                    
-                    if (document.exists()) {
-                        // Verify credentials
-                        String storedId = document.getString("id");
-                        String storedPassword = document.getString("password");
-                        
-                        Log.d(TAG, "Found manager document. Checking credentials...");
-                        
-                        if (id.equals(storedId) && password.equals(storedPassword)) {
-                            // Login successful
-                            Toast.makeText(managerLogin.this, "התחברת בהצלחה", Toast.LENGTH_SHORT).show();
+                .collection("managers").document(username)
+                .get()
+                .addOnCompleteListener(task -> {
+                    if (task.isSuccessful()) {
+                        DocumentSnapshot document = task.getResult();
+                        if (document.exists()) {
+                            String storedId = document.getString("id");
+                            String storedPassword = document.getString("password");
                             
-                            // Save manager session
-                            saveManagerSession(schoolId, username);
+                            Log.d(TAG, "Stored ID: " + storedId + ", Input ID: " + id);
+                            Log.d(TAG, "Stored Password length: " + (storedPassword != null ? storedPassword.length() : 0));
                             
-                            // Navigate to manager page
-                            new Handler(Looper.getMainLooper()).postDelayed(() -> {
-                                goToManagerPage();
-                            }, 1000);
+                            if (id.equals(storedId) && password.equals(storedPassword)) {
+                                Toast.makeText(managerLogin.this, "התחברת בהצלחה", Toast.LENGTH_SHORT).show();
+                                saveManagerSession(schoolId, username);
+                                new Handler(Looper.getMainLooper()).postDelayed(() -> goToManagerPage(schoolId, username), 1000);
+                            } else {
+                                if (!id.equals(storedId)) {
+                                    Toast.makeText(managerLogin.this, "תעודת זהות שגויה", Toast.LENGTH_SHORT).show();
+                                } else {
+                                    Toast.makeText(managerLogin.this, "סיסמה שגויה", Toast.LENGTH_SHORT).show();
+                                }
+                                progressBar.setVisibility(View.GONE);
+                                managerLoginButton.setEnabled(true);
+                            }
                         } else {
-                            // Invalid credentials
-                            Toast.makeText(managerLogin.this, "תעודת זהות או סיסמה שגויים", Toast.LENGTH_SHORT).show();
+                            Log.d(TAG, "Manager document not found. Attempting cache query.");
+                            fallbackToCacheQuery(schoolId, username, id, password);
+                        }
+                    } else {
+                        Log.e(TAG, "Error getting manager document: " + task.getException().getMessage(), task.getException());
+                        Toast.makeText(managerLogin.this, "שגיאה בהתחברות: " + task.getException().getMessage(), Toast.LENGTH_LONG).show();
+                        progressBar.setVisibility(View.GONE);
+                        managerLoginButton.setEnabled(true);
+                    }
+                });
+    }
+    
+    /**
+     * מבצע שאילתת גיבוי במקרה של כשל בגישה מקוונת, מנסה למצוא את המנהל במטמון הפיירסטור.
+     * @param schoolId מזהה בית הספר.
+     * @param username שם המנהל.
+     * @param id תעודת הזהות של המנהל.
+     * @param password הסיסמה של המנהל.
+     */
+    private void fallbackToCacheQuery(String schoolId, String username, String id, String password) {
+        db.collection("schools").document(schoolId)
+                .collection("managers").document(username)
+                .get(com.google.firebase.firestore.Source.CACHE) // Force cache lookup
+                .addOnCompleteListener(task -> {
+                    if (task.isSuccessful()) {
+                        DocumentSnapshot document = task.getResult();
+                        if (document.exists()) {
+                            Log.d(TAG, "Found manager in cache.");
+                            String storedId = document.getString("id");
+                            String storedPassword = document.getString("password");
+
+                            if (id.equals(storedId) && password.equals(storedPassword)) {
+                                Toast.makeText(managerLogin.this, "התחברת בהצלחה (ממטמון)", Toast.LENGTH_SHORT).show();
+                                saveManagerSession(schoolId, username);
+                                new Handler(Looper.getMainLooper()).postDelayed(() -> goToManagerPage(schoolId, username), 1000);
+                            } else {
+                                Toast.makeText(managerLogin.this, "שם משתמש או סיסמה שגויים", Toast.LENGTH_SHORT).show();
+                                progressBar.setVisibility(View.GONE);
+                                managerLoginButton.setEnabled(true);
+                            }
+                        } else {
+                            Toast.makeText(managerLogin.this, "שם משתמש לא קיים במערכת", Toast.LENGTH_SHORT).show();
                             progressBar.setVisibility(View.GONE);
                             managerLoginButton.setEnabled(true);
                         }
                     } else {
-                        // Manager doesn't exist
-                        Toast.makeText(managerLogin.this, "לא נמצא מנהל עם שם המשתמש הזה", Toast.LENGTH_SHORT).show();
+                        Log.e(TAG, "Error getting manager document from cache: " + task.getException().getMessage(), task.getException());
+                        Toast.makeText(managerLogin.this, "שגיאה בגישה לנתונים מקומיים: " + task.getException().getMessage(), Toast.LENGTH_LONG).show();
                         progressBar.setVisibility(View.GONE);
                         managerLoginButton.setEnabled(true);
                     }
-                } else {
-                    // Error checking manager
-                    Log.e(TAG, "Error checking manager existence: " + task.getException());
-                    Toast.makeText(managerLogin.this, "שגיאה בבדיקת פרטי המנהל", Toast.LENGTH_SHORT).show();
-                    progressBar.setVisibility(View.GONE);
-                    managerLoginButton.setEnabled(true);
-                    
-                    // Try offline mode if available
-                    fallbackToCacheQuery(schoolId, username, id, password);
-                }
-            });
-    }
-    
-    private void fallbackToCacheQuery(String schoolId, String username, String id, String password) {
-        Log.d(TAG, "Attempting fallback to cached data");
-        
-        // Using offline persistence to query the cache
-        db.collection("schools").document(schoolId)
-            .collection("managers").document(username)
-            .get()
-            .addOnCompleteListener(task -> {
-                if (task.isSuccessful() && task.getResult().exists()) {
-                    DocumentSnapshot document = task.getResult();
-                    
-                    // Verify credentials
-                    String storedId = document.getString("id");
-                    String storedPassword = document.getString("password");
-                    
-                    if (id.equals(storedId) && password.equals(storedPassword)) {
-                        // Login successful (from cache)
-                        Toast.makeText(managerLogin.this, "התחברת בהצלחה (מצב לא מקוון)", Toast.LENGTH_SHORT).show();
-                        
-                        // Save manager session
-                        saveManagerSession(schoolId, username);
-                        
-                        // Navigate to manager page
-                        new Handler(Looper.getMainLooper()).postDelayed(() -> {
-                            goToManagerPage();
-                        }, 1000);
-                    } else {
-                        // Invalid credentials
-                        Toast.makeText(managerLogin.this, "תעודת זהות או סיסמה שגויים", Toast.LENGTH_SHORT).show();
-                    }
-                } else {
-                    // No cached data available
-                    Toast.makeText(managerLogin.this, "לא ניתן להתחבר במצב לא מקוון", Toast.LENGTH_SHORT).show();
-                }
-                
-                progressBar.setVisibility(View.GONE);
-                managerLoginButton.setEnabled(true);
-            });
+                });
     }
     
     public void goBack(View view) {
@@ -595,14 +561,12 @@ public class managerLogin extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         
-        // Re-enable login button
-        if (managerLoginButton != null) {
-            managerLoginButton.setEnabled(true);
-        }
-        
-        // Hide progress bar
+        // Ensure progress bar is hidden and button re-enabled on resume
         if (progressBar != null) {
             progressBar.setVisibility(View.GONE);
+        }
+        if (managerLoginButton != null) {
+            managerLoginButton.setEnabled(true);
         }
     }
 } 

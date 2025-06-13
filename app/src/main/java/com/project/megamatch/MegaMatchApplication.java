@@ -13,6 +13,11 @@ import com.bumptech.glide.request.RequestOptions;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.FirebaseFirestoreSettings;
 
+/**
+ * מחלקת האפליקציה הראשית של MegaMatch.
+ * מטפלת באתחול ובתצורה גלובלית של רכיבים כמו Firebase Firestore ו-Glide,
+ * וכן באופטימיזציית זיכרון.
+ */
 public class MegaMatchApplication extends MultiDexApplication {
     @Override
     protected void attachBaseContext(Context base) {
@@ -23,18 +28,18 @@ public class MegaMatchApplication extends MultiDexApplication {
     public void onCreate() {
         super.onCreate();
         
-        // Register for low memory callbacks
+        // הרשמה להתקשרויות חוזרות של זיכרון נמוך
         registerActivityLifecycleCallbacks(new MemoryOptimizedActivityCallbacks());
         
-        // Configure Glide for memory optimization
+        // הגדרת Glide לאופטימיזציית זיכרון
         configureGlide();
         
-        // Configure Firebase Firestore for offline support
+        // הגדרת Firebase Firestore לתמיכה במצב לא מקוון
         configureFirestore();
     }
     
     /**
-     * Configure Firebase Firestore for offline support
+     * מגדיר את Firebase Firestore לתמיכה במצב לא מקוון.
      */
     private void configureFirestore() {
         FirebaseFirestore db = FirebaseFirestore.getInstance();
@@ -46,22 +51,22 @@ public class MegaMatchApplication extends MultiDexApplication {
     }
     
     /**
-     * Configure Glide for memory optimization
+     * מגדיר את Glide לאופטימיזציית זיכרון.
      */
     private void configureGlide() {
-        // Configure Glide to use less memory
+        // הגדרת Glide להשתמש בפחות זיכרון
         boolean isLowMemory = isLowMemoryDevice(this);
         
-        // Set a smaller memory cache for Glide
+        // הגדרת מטמון זיכרון קטן יותר עבור Glide
         int memoryCacheSizeBytes = isLowMemory ? 
-                1024 * 1024 * 10 : // 10MB for low memory devices
-                1024 * 1024 * 30;  // 30MB for normal devices
+                1024 * 1024 * 10 : // 10MB למכשירים עם זיכרון נמוך
+                1024 * 1024 * 30;  // 30MB למכשירים רגילים
                 
-        // Apply less aggressive memory usage for low memory devices
+        // יישום שימוש פחות אגרסיבי בזיכרון למכשירים עם זיכרון נמוך
         if (isLowMemory) {
             Glide.get(this).clearMemory();
             RequestOptions options = new RequestOptions()
-                .format(DecodeFormat.PREFER_RGB_565); // Uses less memory
+                .format(DecodeFormat.PREFER_RGB_565); // משתמש בפחות זיכרון
             
             Glide.with(this).setDefaultRequestOptions(options);
         }
@@ -70,7 +75,7 @@ public class MegaMatchApplication extends MultiDexApplication {
     @Override
     public void onLowMemory() {
         super.onLowMemory();
-        // Clear memory-heavy resources
+        // נקה משאבים צורכי זיכרון רבים
         Glide.get(this).clearMemory();
     }
     
@@ -78,26 +83,31 @@ public class MegaMatchApplication extends MultiDexApplication {
     public void onTrimMemory(int level) {
         super.onTrimMemory(level);
         
-        // React based on memory pressure level
+        // הגב בהתאם לרמת לחץ הזיכרון
         if (level >= TRIM_MEMORY_BACKGROUND) {
-            // Clear Glide memory cache when app goes to background
+            // נקה מטמון זיכרון של Glide כאשר האפליקציה עוברת לרקע
             Glide.get(this).clearMemory();
         }
         
         if (level >= TRIM_MEMORY_MODERATE || level == TRIM_MEMORY_RUNNING_CRITICAL) {
-            // Clear all image caches in critical situations
+            // נקה את כל מטמוני התמונות במצבים קריטיים
             Glide.get(this).clearMemory();
             System.gc();
         }
     }
     
+    /**
+     * בודק אם המכשיר הוא מכשיר עם זיכרון נמוך.
+     * @param context הקונטקסט של האפליקציה.
+     * @return true אם המכשיר הוא מכשיר עם זיכרון נמוך, false אחרת.
+     */
     public static boolean isLowMemoryDevice(Context context) {
         ActivityManager am = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
         return am.isLowRamDevice();
     }
     
     /**
-     * Activity lifecycle callbacks to help manage memory
+     * קריאות חוזרות של מחזור חיים של פעילויות כדי לסייע בניהול זיכרון.
      */
     private static class MemoryOptimizedActivityCallbacks implements ActivityLifecycleCallbacks {
         @Override
@@ -114,7 +124,7 @@ public class MegaMatchApplication extends MultiDexApplication {
 
         @Override
         public void onActivityStopped(android.app.Activity activity) {
-            // When activity is stopped, trim memory
+            // כאשר פעילות נעצרת, נקה זיכרון
             Glide.get(activity).clearMemory();
         }
 
@@ -123,7 +133,7 @@ public class MegaMatchApplication extends MultiDexApplication {
 
         @Override
         public void onActivityDestroyed(android.app.Activity activity) {
-            // Clean up resources
+            // נקה משאבים
             System.gc();
         }
     }

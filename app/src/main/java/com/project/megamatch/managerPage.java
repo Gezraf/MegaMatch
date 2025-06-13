@@ -17,6 +17,10 @@ import androidx.core.view.WindowInsetsCompat;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 
+/**
+ * מחלקה זו מייצגת את דף הבית של המנהל.
+ * היא מציגה את שם בית הספר ושם המנהל, ומספקת אפשרויות ניווט לניהול רכזים והתנתקות.
+ */
 public class managerPage extends AppCompatActivity {
 
     private static final String TAG = "ManagerPage";
@@ -41,19 +45,19 @@ public class managerPage extends AppCompatActivity {
             return insets;
         });
 
-        // Initialize UI elements
+        // אתחול רכיבי הממשק
         schoolNameTextView = findViewById(R.id.schoolNameTextView);
         managerNameTextView = findViewById(R.id.managerNameTextView);
 
-        // Initialize Firestore
+        // אתחול Firestore
         db = FirebaseFirestore.getInstance();
 
-        // Get saved manager info
+        // קבלת פרטי המנהל השמורים
         sharedPreferences = getSharedPreferences("MegaMatchPrefs", MODE_PRIVATE);
         schoolId = sharedPreferences.getString("loggedInManagerSchoolId", "");
         username = sharedPreferences.getString("loggedInManagerUsername", "");
 
-        // If not logged in, redirect to login
+        // אם לא מחובר, הפנה לדף ההתחברות
         if (schoolId.isEmpty() || username.isEmpty()) {
             Intent intent = new Intent(managerPage.this, managerLogin.class);
             startActivity(intent);
@@ -61,12 +65,15 @@ public class managerPage extends AppCompatActivity {
             return;
         }
 
-        // Load manager details
+        // טעינת פרטי המנהל
         loadManagerDetails();
     }
 
+    /**
+     * טוען את פרטי המנהל מפיירסטור ומעדכן את הממשק.
+     */
     private void loadManagerDetails() {
-        // Load manager details from Firestore
+        // טעינת פרטי המנהל מפיירסטור
         db.collection("schools").document(schoolId)
             .collection("managers").document(username)
             .get()
@@ -75,29 +82,32 @@ public class managerPage extends AppCompatActivity {
                     DocumentSnapshot document = task.getResult();
                     
                     if (document.exists()) {
-                        // Get manager details
+                        // קבלת פרטי המנהל
                         managerFullName = document.getString("fullName");
                         
-                        // Update UI
+                        // עדכון ממשק המשתמש
                         runOnUiThread(() -> {
                             managerNameTextView.setText(managerFullName);
                             
-                            // Load school name
+                            // טעינת שם בית הספר
                             loadSchoolName();
                         });
                     } else {
-                        Log.w(TAG, "Manager document doesn't exist!");
+                        Log.w(TAG, "מסמך המנהל לא קיים!");
                         showError("לא נמצאו פרטי מנהל");
                     }
                 } else {
-                    Log.e(TAG, "Error loading manager details", task.getException());
+                    Log.e(TAG, "שגיאה בטעינת פרטי מנהל", task.getException());
                     showError("שגיאה בטעינת פרטי מנהל");
                 }
             });
     }
     
+    /**
+     * טוען את שם בית הספר מה-CSV או מפיירסטור.
+     */
     private void loadSchoolName() {
-        // Try to find school in the CSV database first
+        // נסה למצוא בית ספר במסד הנתונים CSV תחילה
         for (schoolsDB.School school : schoolsDB.getAllSchools()) {
             if (String.valueOf(school.getSchoolId()).equals(schoolId)) {
                 schoolNameTextView.setText(school.getSchoolName());
@@ -105,7 +115,7 @@ public class managerPage extends AppCompatActivity {
             }
         }
         
-        // If not found in CSV, try to get it from Firestore
+        // אם לא נמצא ב-CSV, נסה לקבל אותו מפיירסטור
         db.collection("schools").document(schoolId)
             .get()
             .addOnCompleteListener(task -> {
@@ -113,13 +123,13 @@ public class managerPage extends AppCompatActivity {
                     DocumentSnapshot document = task.getResult();
                     
                     if (document.exists()) {
-                        // Check if the school has a "name" field
+                        // בדוק אם לבית הספר יש שדה "name"
                         String name = document.getString("name");
                         
                         if (name != null && !name.isEmpty()) {
                             schoolNameTextView.setText(name);
                         } else {
-                            // Use a placeholder with the ID
+                            // השתמש במחזיק מקום עם המזהה
                             schoolNameTextView.setText("בית ספר " + schoolId);
                         }
                     } else {
@@ -131,24 +141,37 @@ public class managerPage extends AppCompatActivity {
             });
     }
     
+    /**
+     * מציג הודעת שגיאה ב-Toast.
+     * @param message הודעת השגיאה להצגה.
+     */
     private void showError(String message) {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
     }
 
+    /**
+     * מעביר למסך ניהול רכזים.
+     * @param view התצוגה שלחצה על האירוע.
+     */
     public void manageRakazim(View view) {
         Intent intent = new Intent(managerPage.this, manageRakaz.class);
         intent.putExtra("schoolId", schoolId);
         startActivity(intent);
     }
 
+    /**
+     * מוחק את סשן המנהל בהעדפות המשותפות ומנתק את המשתמש.
+     * מעביר לדף ההתחברות.
+     * @param view התצוגה שלחצה על האירוע.
+     */
     public void logout(View view) {
-        // Clear manager session
+        // ניקוי סשן המנהל
         sharedPreferences.edit()
             .remove("loggedInManagerSchoolId")
             .remove("loggedInManagerUsername")
             .apply();
 
-        // Redirect to login page
+        // הפניה לדף ההתחברות
         Intent intent = new Intent(managerPage.this, loginPage.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         startActivity(intent);

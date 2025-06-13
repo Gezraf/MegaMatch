@@ -14,11 +14,24 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * מחלקה זו משמשת לאחסון וטעינה של נתוני בתי ספר מקובץ CSV.
+ * היא מספקת שיטות לטעינת בתי ספר מתוך קובץ `schools.csv`,
+ * ולאחזור פרטי בתי ספר לפי מזהה או קבלת רשימה של כל בתי הספר.
+ */
 public class schoolsDB {
 
+    /**
+     * מפה (HashMap) המאחסנת אובייקטי School, כאשר מזהה בית הספר הוא המפתח.
+     * משמשת לגישה מהירה לפרטי בית ספר לפי המזהה שלו.
+     */
     private static final HashMap<Integer, School> schoolsMap = new HashMap<>();
 
-    // Call this method in an Activity to initialize the database
+    /**
+     * טוענת את נתוני בתי הספר מקובץ ה-CSV המובנה ביישום (`R.raw.schools`).
+     * שיטה זו מנקה את המפה הקיימת של בתי הספר ומוסיפה אליה את הנתונים החדשים מהקובץ.
+     * @param context הקונטקסט של היישום, המשמש לגישה למשאבי הקובץ הגולמי.
+     */
     public static void loadSchoolsFromCSV(Context context) {
         schoolsMap.clear();
 
@@ -34,7 +47,7 @@ public class schoolsDB {
                     continue;
                 }
 
-                // Parse CSV line properly handling quotes
+                // ניתוח שורת ה-CSV תוך טיפול נכון בגרשיים
                 String[] columns = parseCSVLine(line);
 
                 if (columns.length < 3) continue;
@@ -44,9 +57,9 @@ public class schoolsDB {
                 try {
                     int schoolId = Integer.parseInt(schoolIdStr);
                     String schoolName = columns[1].trim();
-                    String managerName = columns[2].trim();
+                    String town = columns[2].trim(); // שונה מ-managerName ל-town לפי התיקון הקודם של המשתמש
 
-                    schoolsMap.put(schoolId, new School(schoolName, managerName));
+                    schoolsMap.put(schoolId, new School(schoolName, town));
 
                 } catch (NumberFormatException ignored) {}
             }
@@ -56,7 +69,11 @@ public class schoolsDB {
         }
     }
 
-    // Parse CSV line properly handling quotes
+    /**
+     * מנתחת שורת טקסט מקובץ CSV תוך טיפול נכון בגרשיים (quotes).
+     * @param line שורת הטקסט לניתוח.
+     * @return מערך של מחרוזות, כאשר כל מחרוזת מייצגת שדה בודד מהשורה.
+     */
     private static String[] parseCSVLine(String line) {
         List<String> result = new ArrayList<>();
         boolean inQuotes = false;
@@ -66,16 +83,16 @@ public class schoolsDB {
             char c = line.charAt(i);
             
             if (c == '"') {
-                // If we see a quote and we're already in quotes, check if it's an escaped quote
+                // אם אנו רואים גרש ואנו כבר בתוך גרשיים, בדוק אם זהו גרש "מוברח" (escaped quote)
                 if (inQuotes && i + 1 < line.length() && line.charAt(i + 1) == '"') {
-                    field.append('"'); // Add a single quote
-                    i++; // Skip the next quote
+                    field.append('"'); // הוסף גרש בודד
+                    i++; // דלג על הגרש הבא
                 } else {
-                    // Toggle quote state
+                    // שנה את מצב הגרשיים
                     inQuotes = !inQuotes;
                 }
             } else if (c == ',' && !inQuotes) {
-                // End of field
+                // סוף שדה
                 result.add(field.toString());
                 field = new StringBuilder();
             } else {
@@ -83,66 +100,117 @@ public class schoolsDB {
             }
         }
         
-        // Add the last field
+        // הוסף את השדה האחרון
         result.add(field.toString());
         
         return result.toArray(new String[0]);
     }
 
-    // Method to retrieve school details by ID
+    /**
+     * מאחזר את פרטי בית הספר לפי מזהה בית הספר.
+     * @param schoolId מזהה בית הספר המבוקש.
+     * @return אובייקט School המייצג את בית הספר, או null אם לא נמצא בית ספר עם המזהה הנתון.
+     */
     public static School getSchoolById(int schoolId) {
         return schoolsMap.get(schoolId);
     }
 
+    /**
+     * מחזירה את המספר הכולל של בתי הספר שנטענו במסד הנתונים.
+     * @return המספר הכולל של בתי הספר.
+     */
     public static int getTotalSchoolsCount()
     {
         return schoolsMap.size();
     }
 
+    /**
+     * מחזירה את מפת בתי הספר המלאה (HashMap) המכילה את כל בתי הספר שנטענו.
+     * @return מפה של בתי ספר, כאשר המפתח הוא מזהה בית הספר והערך הוא אובייקט School.
+     */
     public static HashMap<Integer, School> getSchoolsMap() {
         return schoolsMap;
     }
 
-    // Method to get all schools as a List with IDs
+    /**
+     * מחזירה רשימה של כל בתי הספר שנטענו, כולל מזהה בית הספר לכל אחד.
+     * @return רשימה של אובייקטי School.
+     */
     public static List<School> getAllSchools() {
         List<School> schoolsList = new ArrayList<>();
         for (Map.Entry<Integer, School> entry : schoolsMap.entrySet()) {
             School school = entry.getValue();
-            // Create a school with ID
-            School schoolWithId = new School(school.getSchoolName(), school.getManagerName());
+            // צור אובייקט School עם המזהה
+            School schoolWithId = new School(school.getSchoolName(), school.getTown()); // שונה ל-town
             schoolWithId.setSchoolId(entry.getKey());
             schoolsList.add(schoolWithId);
         }
         return schoolsList;
     }
 
-    // Inner class representing a school
+    /**
+     * מחלקה פנימית המייצגת אובייקט בית ספר, עם פרטים כמו שם, עיר ומזהה.
+     */
     public static class School {
+        /**
+         * שם בית הספר.
+         */
         private final String schoolName;
-        private final String managerName;
+        /**
+         * עיר בית הספר. (הוחלף מ-managerName ל-town)
+         */
+        private final String town;
+        /**
+         * מזהה בית הספר (סמל מוסד).
+         */
         private int schoolId;
 
-        public School(String schoolName, String managerName) {
+        /**
+         * בונה חדש עבור אובייקט School.
+         * @param schoolName שם בית הספר.
+         * @param town עיר בית הספר. (הוחלף מ-managerName ל-town)
+         */
+        public School(String schoolName, String town) {
             this.schoolName = schoolName;
-            this.managerName = managerName;
+            this.town = town;
         }
 
+        /**
+         * מחזירה את שם בית הספר.
+         * @return שם בית הספר.
+         */
         public String getSchoolName() {
             return schoolName;
         }
 
-        public String getManagerName() {
-            return managerName;
+        /**
+         * מחזירה את עיר בית הספר.
+         * @return עיר בית הספר. (הוחלף מ-getManagerName ל-getTown)
+         */
+        public String getTown() {
+            return town;
         }
         
+        /**
+         * מגדירה את מזהה בית הספר.
+         * @param schoolId מזהה בית הספר.
+         */
         public void setSchoolId(int schoolId) {
             this.schoolId = schoolId;
         }
         
+        /**
+         * מחזירה את מזהה בית הספר.
+         * @return מזהה בית הספר.
+         */
         public int getSchoolId() {
             return schoolId;
         }
         
+        /**
+         * מחזירה ייצוג מחרוזתי של אובייקט School, שהוא שם בית הספר.
+         * @return שם בית הספר.
+         */
         @Override
         public String toString() {
             return schoolName;

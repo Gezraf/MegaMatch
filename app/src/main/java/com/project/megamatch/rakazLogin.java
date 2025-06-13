@@ -33,6 +33,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+/**
+ * פעילות התחברות רכז
+ * מסך התחברות עבור רכזים במערכת, כולל בחירת בית ספר ואימות פרטי התחברות
+ */
 public class rakazLogin extends AppCompatActivity {
 
     private AutoCompleteTextView schoolAutocomplete;
@@ -41,14 +45,18 @@ public class rakazLogin extends AppCompatActivity {
     private Button noAccountButton;
     private FirebaseFirestore fireDB;
     private SharedPreferences sharedPreferences;
-    private List<schoolsDB.School> allSchools; // All schools from CSV
-    private List<schoolsDB.School> firebaseSchools; // Schools that exist in Firebase 
+    private List<schoolsDB.School> allSchools; // כל בתי הספר מקובץ ה-CSV
+    private List<schoolsDB.School> firebaseSchools; // בתי ספר שקיימים בפיירבייס
     private SchoolAdapter schoolAdapter;
     private schoolsDB.School selectedSchool;
     private static final String TAG = "RakazLogin";
     private static final String PREF_KNOWN_SCHOOLS = "knownSchoolIds";
     private ProgressBar progressBar;
 
+    /**
+     * נקרא בעת יצירת הפעילות
+     * מאתחל את הממשק וטוען את נתוני בתי הספר
+     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -107,7 +115,8 @@ public class rakazLogin extends AppCompatActivity {
     }
 
     /**
-     * Load schools from Firestore that actually exist
+     * טוען את בתי הספר מפיירבייס שקיימים במערכת
+     * משתמש בנתונים שמורים מהפעם הקודמת ומעדכן את הרשימה
      */
     private void loadSchoolsFromFirestore() {
         if (progressBar != null) {
@@ -187,7 +196,8 @@ public class rakazLogin extends AppCompatActivity {
     }
     
     /**
-     * Add a school to the firebaseSchools list by its ID
+     * מוסיף בית ספר לרשימת בתי הספר בפיירבייס לפי מזהה
+     * @param schoolId מזהה בית הספר להוספה
      */
     private void addSchoolById(String schoolId) {
         boolean found = false;
@@ -226,7 +236,9 @@ public class rakazLogin extends AppCompatActivity {
     }
     
     /**
-     * Check if a school already exists in the firebaseSchools list
+     * בודק אם בית ספר כבר קיים ברשימת בתי הספר בפיירבייס
+     * @param school בית הספר לבדיקה
+     * @return true אם בית הספר קיים, false אחרת
      */
     private boolean schoolExists(schoolsDB.School school) {
         for (schoolsDB.School existingSchool : firebaseSchools) {
@@ -237,6 +249,10 @@ public class rakazLogin extends AppCompatActivity {
         return false;
     }
 
+    /**
+     * מאתחל את שדה האוטוקומפליט של בתי הספר
+     * מגדיר את המתאם ואת הטיפול בבחירת בית ספר
+     */
     private void setupSchoolAutocomplete() {
         // יצירת מתאם מותאם עם בתי הספר שקיימים בפיירבייס
         schoolAdapter = new SchoolAdapter(this, android.R.layout.simple_dropdown_item_1line, firebaseSchools);
@@ -293,7 +309,9 @@ public class rakazLogin extends AppCompatActivity {
     }
     
     /**
-     * Find a school in the firebaseSchools list by its ID
+     * מוצא בית ספר לפי מזהה
+     * @param schoolId מזהה בית הספר לחיפוש
+     * @return בית הספר שנמצא או null אם לא נמצא
      */
     private schoolsDB.School findSchoolById(int schoolId) {
         for (schoolsDB.School school : firebaseSchools) {
@@ -304,7 +322,7 @@ public class rakazLogin extends AppCompatActivity {
         return null;
     }
 
-    // מתאם מותאם עם פונקציית סינון מותאמת
+    // מתאם מותאם מותאם להצגת רשימת בתי הספר
     private class SchoolAdapter extends ArrayAdapter<schoolsDB.School> implements Filterable {
         private List<schoolsDB.School> originalList;
         private List<schoolsDB.School> filteredList;
@@ -387,7 +405,10 @@ public class rakazLogin extends AppCompatActivity {
         }
     }
 
-    // Check if Rakaz is already logged in
+    /**
+     * בודק אם יש משתמש מחובר מהפעם הקודמת
+     * אם כן, מעביר אותו למסך הבא
+     */
     private void checkIfAlreadyLoggedIn() {
         if (sharedPreferences.contains("loggedInUsername")) {
             Log.d("Auth", "Rakaz session found, auto-login");
@@ -395,7 +416,11 @@ public class rakazLogin extends AppCompatActivity {
         }
     }
 
-
+    /**
+     * שומר את פרטי ההתחברות של הרכז
+     * @param schoolId מזהה בית הספר
+     * @param username שם המשתמש
+     */
     private void saveRakazSession(String schoolId, String username) {
         // Save session data in SharedPreferences
         SharedPreferences.Editor editor = sharedPreferences.edit();
@@ -404,12 +429,19 @@ public class rakazLogin extends AppCompatActivity {
         editor.apply();
     }
 
+    /**
+     * מעביר את המשתמש למסך הבא
+     */
     private void goToNextScreen() {
         Intent intent = new Intent(this, LoadingActivity.class);
         startActivity(intent);
         finish();
     }
 
+    /**
+     * מעביר את המשתמש למסך ההרשמה
+     * @param view תצוגת הכפתור שנלחץ
+     */
     public void moveToRakazRegister(View view) {
         Intent intent = new Intent(this, rakazRegister.class);
         
@@ -422,7 +454,11 @@ public class rakazLogin extends AppCompatActivity {
         startActivity(intent);
     }
 
-    // For testing: Grant admin privileges to a rakaz user
+    /**
+     * מעניק הרשאות מנהל למשתמש
+     * @param schoolId מזהה בית הספר
+     * @param username שם המשתמש
+     */
     private void grantAdminPrivileges(String schoolId, String username) {
         fireDB.collection("schools").document(schoolId)
                 .collection("rakazim").document(username)
@@ -437,6 +473,10 @@ public class rakazLogin extends AppCompatActivity {
                 });
     }
 
+    /**
+     * מטפל בלחיצה על כפתור ההתחברות
+     * בודק את תקינות הפרטים ומבצע את ההתחברות
+     */
     private void rakazLoginClick() {
         String currentText = schoolAutocomplete.getText().toString().trim();
         
@@ -534,6 +574,12 @@ public class rakazLogin extends AppCompatActivity {
     
 
     
+    /**
+     * מבצע חיפוש במטמון כאשר החיפוש בפיירבייס נכשל
+     * @param schoolId מזהה בית הספר
+     * @param id מספר תעודת זהות
+     * @param password סיסמה
+     */
     private void fallbackToCacheQuery(String schoolId, String id, String password) {
         Log.d(TAG, "Attempting fallback to cache query");
         // Try using cache as a last resort

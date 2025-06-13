@@ -35,6 +35,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+/**
+ * פעילות הרשמת רכז
+ * מסך הרשמה לרכזים, כולל בחירת בית ספר, אימות פרטים ושמירת נתונים
+ */
 public class rakazRegister extends AppCompatActivity {
 
     private AutoCompleteTextView schoolAutocomplete;
@@ -49,6 +53,10 @@ public class rakazRegister extends AppCompatActivity {
     private SharedPreferences sharedPreferences;
     private static final String PREF_KNOWN_SCHOOLS = "knownSchoolIds";
 
+    /**
+     * נקרא בעת יצירת הפעילות
+     * מאתחל את הממשק, טוען נתוני בתי ספר ומגדיר שדות קלט
+     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -104,7 +112,8 @@ public class rakazRegister extends AppCompatActivity {
     }
 
     /**
-     * Load schools from Firestore that actually exist
+     * טוען את בתי הספר מפיירבייס שקיימים במערכת
+     * משתמש בנתונים שמורים מהפעם הקודמת ומעדכן את הרשימה
      */
     private void loadSchoolsFromFirestore() {
         progressBar.setVisibility(View.VISIBLE);
@@ -176,7 +185,8 @@ public class rakazRegister extends AppCompatActivity {
     }
     
     /**
-     * Add a school to the firebaseSchools list by its ID
+     * מוסיף בית ספר לרשימת בתי הספר בפיירבייס לפי מזהה
+     * @param schoolId מזהה בית הספר להוספה
      */
     private void addSchoolById(String schoolId) {
         boolean found = false;
@@ -215,7 +225,9 @@ public class rakazRegister extends AppCompatActivity {
     }
     
     /**
-     * Check if a school already exists in the firebaseSchools list
+     * בודק אם בית ספר כבר קיים ברשימת בתי הספר בפיירבייס
+     * @param school בית הספר לבדיקה
+     * @return true אם בית הספר קיים, false אחרת
      */
     private boolean schoolExists(schoolsDB.School school) {
         for (schoolsDB.School existingSchool : firebaseSchools) {
@@ -227,7 +239,9 @@ public class rakazRegister extends AppCompatActivity {
     }
     
     /**
-     * Find a school in the firebaseSchools list by its ID
+     * מוצא בית ספר לפי מזהה
+     * @param schoolId מזהה בית הספר לחיפוש
+     * @return בית הספר שנמצא או null אם לא נמצא
      */
     private schoolsDB.School findSchoolById(int schoolId) {
         for (schoolsDB.School school : firebaseSchools) {
@@ -238,6 +252,10 @@ public class rakazRegister extends AppCompatActivity {
         return null;
     }
 
+    /**
+     * מאתחל את שדה האוטוקומפליט של בתי הספר
+     * מגדיר את המתאם ואת הטיפול בבחירת בית ספר
+     */
     private void setupSchoolAutocomplete() {
         // יצירת מתאם מותאם עם בתי הספר שקיימים בפיירבייס
         schoolAdapter = new SchoolAdapter(this, android.R.layout.simple_dropdown_item_1line, firebaseSchools);

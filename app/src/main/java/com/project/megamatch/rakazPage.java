@@ -19,6 +19,10 @@ import com.google.firebase.firestore.FirebaseFirestore;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * פעילות דף הבית של רכז
+ * מסך ראשי עבור רכזים במערכת, כולל ניהול מגמה, צפייה במגמה וניהול כתובות אימייל
+ */
 public class rakazPage extends AppCompatActivity {
 
     private TextView welcomeText;
@@ -32,6 +36,10 @@ public class rakazPage extends AppCompatActivity {
     private String username;
     private boolean hasMegama = false;
 
+    /**
+     * נקרא בעת יצירת הפעילות
+     * מאתחל את הממשק וטוען את נתוני המשתמש
+     */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -75,6 +83,10 @@ public class rakazPage extends AppCompatActivity {
         initializeViews();
     }
     
+    /**
+     * נקרא כאשר הפעילות חוזרת לקדמת הבמה
+     * בודק אם סטטוס המגמה השתנה
+     */
     @Override
     protected void onResume() {
         super.onResume();
@@ -82,6 +94,9 @@ public class rakazPage extends AppCompatActivity {
         loadRakazDetails();
     }
     
+    /**
+     * מאתחל את רכיבי הממשק ומגדיר את מאזיני הלחיצה
+     */
     private void initializeViews() {
         welcomeText = findViewById(R.id.welcomeText);
         manageMegamaButton = findViewById(R.id.manageMegamaButton);
@@ -103,7 +118,7 @@ public class rakazPage extends AppCompatActivity {
     }
     
     /**
-     * Helper class to prevent rapid multiple clicks
+     * מחלקה עזר למניעת לחיצות מרובות מהירות
      */
     private static class DebounceClickListener implements View.OnClickListener {
         private static final long DEBOUNCE_INTERVAL_MS = 1000; // 1 second
@@ -126,7 +141,10 @@ public class rakazPage extends AppCompatActivity {
         }
     }
     
-    // פונקציה לטעינת פרטי הרכז
+    /**
+     * טוען את פרטי הרכז מפיירבייס
+     * כולל שם מלא ומידע על קיום מגמה
+     */
     private void loadRakazDetails() {
         fireDB.collection("schools").document(schoolId)
               .collection("rakazim").document(username)
@@ -171,7 +189,10 @@ public class rakazPage extends AppCompatActivity {
               });
     }
     
-    // פונקציה לניהול המגמה (יצירה או עדכון)
+    /**
+     * מטפל בלחיצה על כפתור ניהול המגמה
+     * בודק אם קיימת מגמה ומעביר לעריכה או יצירה בהתאם
+     */
     private void manageMegama() {
         // Show loading state and disable button to prevent multiple clicks
         manageMegamaButton.setEnabled(false);
@@ -277,6 +298,9 @@ public class rakazPage extends AppCompatActivity {
           });
     }
     
+    /**
+     * מתחיל תהליך יצירת מגמה חדשה
+     */
     private void startMegamaCreation() {
         // Create a flag to track if we've already started an activity
         // to prevent starting multiple activities if button is clicked rapidly
@@ -295,7 +319,10 @@ public class rakazPage extends AppCompatActivity {
         startActivity(intent);
     }
     
-    // פונקציה לצפייה במגמה
+    /**
+     * מטפל בלחיצה על כפתור צפייה במגמה
+     * מעביר למסך תצוגת המגמה
+     */
     private void viewMegama() {
         if (hasMegama) {
             Intent intent = new Intent(this, MegamaPreview.class);
@@ -307,7 +334,10 @@ public class rakazPage extends AppCompatActivity {
         }
     }
 
-    // התנתקות מהמערכת
+    /**
+     * מטפל בלחיצה על כפתור התנתקות
+     * מנקה את נתוני הסשן ומעביר למסך ההתחברות
+     */
     private void logoutRakaz() {
         clearSessionData();
         Intent intent = new Intent(this, loginPage.class);
@@ -316,14 +346,19 @@ public class rakazPage extends AppCompatActivity {
         finish();
     }
 
-    // ניקוי נתוני חיבור
+    /**
+     * מנקה את נתוני הסשן השמורים
+     */
     private void clearSessionData() {
         SharedPreferences.Editor editor = sharedPreferences.edit();
         editor.clear();
         editor.apply();
     }
 
-    // Check if the rakaz user has admin privileges
+    /**
+     * בודק אם למשתמש יש הרשאות מנהל
+     * מציג/מסתיר כפתורים בהתאם
+     */
     private void checkAdminStatus() {
         fireDB.collection("schools").document(schoolId)
               .collection("rakazim").document(username)
@@ -347,7 +382,9 @@ public class rakazPage extends AppCompatActivity {
               });
     }
 
-    // Open the admin page for managing rakaz emails
+    /**
+     * פותח את מסך ניהול כתובות האימייל של רכזים
+     */
     private void openRakazEmailsManagement() {
         Intent intent = new Intent(this, AdminRakazEmailsActivity.class);
         intent.putExtra("schoolId", schoolId);

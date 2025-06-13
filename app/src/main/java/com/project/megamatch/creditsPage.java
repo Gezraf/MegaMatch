@@ -15,9 +15,13 @@ import androidx.core.view.WindowInsetsCompat;
 
 import com.google.android.material.button.MaterialButton;
 
+/**
+ * מחלקה זו מייצגת את עמוד הקרדיטים של האפליקציה.
+ * היא מכילה מידע ליצירת קשר ומאפשרת למשתמשים ליצור קשר עם המפתחים.
+ */
 public class creditsPage extends AppCompatActivity {
     
-    // Contact information constants
+    // קבועים לפרטי יצירת קשר
     private static final String EMAIL_ADDRESS = "megamatch.contact@gmail.com";
     private static final String PHONE_NUMBER = "+972537253141";
 
@@ -27,48 +31,56 @@ public class creditsPage extends AppCompatActivity {
         EdgeToEdge.enable(this);
         setContentView(R.layout.credits_page);
         
-        // Apply window insets
+        // החלת Insets של החלון
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.creditsPage), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
             return insets;
         });
 
-        // Setup contact button
+        // הגדרת כפתור יצירת קשר
         MaterialButton contactButton = findViewById(R.id.contactButton);
         contactButton.setOnClickListener(v -> showContactChooser());
         
-        // Setup close button
+        // הגדרת כפתור סגירה
         MaterialButton closeButton = findViewById(R.id.closeButton);
         closeButton.setOnClickListener(v -> finish());
     }
 
+    /**
+     * מציג בורר יישומים ליצירת קשר (אימייל, SMS, וואטסאפ).
+     */
     private void showContactChooser() {
-        // Create intent for messaging/SMS options
+        // יצירת אינטנט לאפשרויות הודעות/SMS
         Intent smsIntent = new Intent(Intent.ACTION_SENDTO);
-        smsIntent.setData(Uri.parse("smsto:" + PHONE_NUMBER)); // Set the phone number
+        smsIntent.setData(Uri.parse("smsto:" + PHONE_NUMBER)); // הגדרת מספר הטלפון
         
-        // Create intent for WhatsApp
+        // יצירת אינטנט לוואטסאפ
         Intent whatsappIntent = new Intent(Intent.ACTION_VIEW);
-        whatsappIntent.setData(Uri.parse("https://wa.me/" + PHONE_NUMBER)); // WhatsApp universal link format
+        whatsappIntent.setData(Uri.parse("https://wa.me/" + PHONE_NUMBER)); // פורמט קישור אוניברסלי לוואטסאפ
         
-        // Create intent for Gmail
+        // יצירת אינטנט לג'ימייל
         Intent gmailIntent = new Intent(Intent.ACTION_SENDTO);
-        gmailIntent.setData(Uri.parse("mailto:" + EMAIL_ADDRESS)); // Set the email address
+        gmailIntent.setData(Uri.parse("mailto:" + EMAIL_ADDRESS)); // הגדרת כתובת האימייל
         
-        // Create a chooser with all available options
-        Intent chooser = Intent.createChooser(gmailIntent, "צור קשר באמצעות..."); // "Contact via..."
+        // יצירת בורר עם כל האפשרויות הזמינות
+        Intent chooser = Intent.createChooser(gmailIntent, "צור קשר באמצעות...");
         
-        // Add other intents if apps are installed
+        // הוספת אינטנטים נוספים אם היישומים מותקנים
         Intent[] extraIntents = new Intent[2];
         extraIntents[0] = smsIntent;
         extraIntents[1] = whatsappIntent;
         chooser.putExtra(Intent.EXTRA_INITIAL_INTENTS, extraIntents);
 
-        // Start the chooser activity
+        // הפעלת פעילות הבורר
         startActivity(chooser);
     }
 
+    /**
+     * בודק אם יישום מותקן במכשיר.
+     * @param packageName שם החבילה של היישום.
+     * @return true אם היישום מותקן, false אחרת.
+     */
     private boolean isAppInstalled(String packageName) {
         PackageManager pm = getPackageManager();
         try {

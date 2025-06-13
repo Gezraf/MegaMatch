@@ -14,6 +14,11 @@ import androidx.fragment.app.FragmentTransaction;
 
 import com.google.android.material.button.MaterialButton;
 
+/**
+ * מחלקה זו מייצגת את מסך העזרה של האפליקציה.
+ * היא מציגה מדריך למשתמש עם הוראות הפעלה בסיסיות,
+ * ומאפשרת ניווט בין דפי העזרה השונים.
+ */
 public class helpPage extends AppCompatActivity {
 
     private MaterialButton prevPageButton, nextPageButton, closeButton;
@@ -22,7 +27,7 @@ public class helpPage extends AppCompatActivity {
     private int currentPage = 0;
     private final int TOTAL_PAGES = 4;
 
-    // Instructions to display (Hebrew version)
+    // הוראות להצגה (גרסה בעברית)
     private final String[] instructions = {
             "ברוך הבא ל-MegaMatch! מדריך זה יעזור לך לנווט באפליקציה.",
             "תלמידים יכולים להתחבר באמצעות תעודת מזהה ולפי סיסמה שנקבעה להם על ידי בית הספר.\n\n" +
@@ -43,24 +48,24 @@ public class helpPage extends AppCompatActivity {
             return insets;
         });
 
-        // Initialize UI components
+        // אתחול רכיבי הממשק
         prevPageButton = findViewById(R.id.prevPageButton);
         nextPageButton = findViewById(R.id.nextPageButton);
         closeButton = findViewById(R.id.closeButton);
         pageNumberText = findViewById(R.id.pageNumberText);
 
-        // Initialize and add the TextFragment
+        // אתחול והוספת ה-TextFragment
         textFragment = new TextFragment();
         FragmentManager fragmentManager = getSupportFragmentManager();
         FragmentTransaction fragmentTransaction = fragmentManager.beginTransaction();
         fragmentTransaction.add(R.id.helpFragmentContainer, textFragment);
         fragmentTransaction.commit();
 
-        // Display the first instruction and page number
+        // הצגת ההוראה הראשונה ומספר העמוד
         updateUI();
         updateNavigationButtons();
 
-        // Handle navigation
+        // טיפול בניווט
         prevPageButton.setOnClickListener(v -> {
             if (currentPage > 0) {
                 currentPage--;
@@ -77,23 +82,29 @@ public class helpPage extends AppCompatActivity {
             }
         });
         
-        // Close button returns to previous screen
+        // כפתור סגירה מחזיר למסך הקודם
         closeButton.setOnClickListener(v -> finish());
     }
 
+    /**
+     * מעדכן את הממשק עם הטקסט הנוכחי ומספר העמוד
+     */
     private void updateUI() {
-        // Update fragment with text and current page
+        // עדכון ה-Fragment עם הטקסט והעמוד הנוכחי
         textFragment.updatePage(instructions[currentPage], currentPage);
-        // Display page number as "1 מתוך 4" (1 of 4)
+        // הצגת מספר העמוד בפורמט "1 מתוך 4"
         pageNumberText.setText((currentPage + 1) + " מתוך " + TOTAL_PAGES);
     }
     
+    /**
+     * מעדכן את מצב כפתורי הניווט בהתאם למיקום הנוכחי
+     */
     private void updateNavigationButtons() {
-        // Disable prev button on first page
+        // השבתת כפתור הקודם בעמוד הראשון
         prevPageButton.setEnabled(currentPage > 0);
         prevPageButton.setAlpha(currentPage > 0 ? 1.0f : 0.5f);
         
-        // Disable next button on last page
+        // השבתת כפתור הבא בעמוד האחרון
         nextPageButton.setEnabled(currentPage < instructions.length - 1);
         nextPageButton.setAlpha(currentPage < instructions.length - 1 ? 1.0f : 0.5f);
     }
